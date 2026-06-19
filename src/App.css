@@ -196,6 +196,38 @@
   opacity: 0.42;
 }
 
+.newChatIcon {
+  position: relative;
+  width: 15px;
+  height: 15px;
+}
+
+.newChatIcon::before {
+  position: absolute;
+  inset: 2px 3px 3px 2px;
+  border: 1.8px solid currentColor;
+  border-radius: 3px;
+  content: "";
+}
+
+.newChatIcon::after {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 8px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: -2px 2px 0 #202024;
+  content: "";
+  transform: rotate(-45deg);
+  transform-origin: center;
+}
+
+.iconButton:hover:not(:disabled) .newChatIcon::after {
+  box-shadow: -2px 2px 0 #28282e;
+}
+
 .mobileOnly {
   display: none;
 }

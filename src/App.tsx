@@ -463,7 +463,7 @@ function App() {
               aria-label="Novo chat"
               title="Novo chat"
             >
-              +
+              <span className="newChatIcon" aria-hidden="true" />
             </button>
             <button
               type="button"
