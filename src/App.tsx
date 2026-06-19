@@ -12,10 +12,16 @@ import {
   CreditCard,
   LogIn,
   LogOut,
+  MessageSquare,
   Sparkles,
   SquarePen,
 } from 'lucide-react'
-import { requestConstruction, type ConstructionResponse, type CopilotMode } from './ai'
+import {
+  requestChatTitle,
+  requestConstruction,
+  type ConstructionResponse,
+  type CopilotMode,
+} from './ai'
 import {
   createGeoGebraApplet,
   executeGeoGebraCommands,
@@ -50,15 +56,25 @@ type Message = {
 type ChatThread = {
   id: string
   title: string
+  titleStatus: 'new' | 'pending' | 'ready'
   messages: Message[]
+  createdAt: number
+  updatedAt: number
 }
 
-const INITIAL_CHAT_THREAD = createChatThread()
+type ChatState = {
+  threads: ChatThread[]
+  activeChatId: string
+}
+
+const CHAT_STORAGE_KEY = 'ggb-copilot:chat-state'
+const INITIAL_CHAT_STATE = readInitialChatState()
 
 function App() {
   const [input, setInput] = useState('')
-  const [chatThreads, setChatThreads] = useState<ChatThread[]>(() => [INITIAL_CHAT_THREAD])
-  const [activeChatId, setActiveChatId] = useState(() => INITIAL_CHAT_THREAD.id)
+  const [chatThreads, setChatThreads] = useState<ChatThread[]>(() => INITIAL_CHAT_STATE.threads)
+  const [activeChatId, setActiveChatId] = useState(() => INITIAL_CHAT_STATE.activeChatId)
+  const [isChatListOpen, setIsChatListOpen] = useState(true)
   const [statusText, setStatusText] = useState('Carregando GeoGebra...')
   const [isGeoGebraReady, setIsGeoGebraReady] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -77,6 +93,11 @@ function App() {
   const currentChatId = activeChatId ?? chatThreads[0]?.id ?? ''
   const activeChat = chatThreads.find((thread) => thread.id === currentChatId) ?? chatThreads[0]
   const messages = activeChat?.messages ?? []
+  const visibleChatThreads = [...chatThreads].sort((left, right) => right.updatedAt - left.updatedAt)
+
+  useEffect(() => {
+    storeChatState(chatThreads, currentChatId)
+  }, [chatThreads, currentChatId])
 
   useEffect(() => {
     const host = geogebraHostRef.current
@@ -113,6 +134,7 @@ function App() {
             ...thread.messages,
             { ...message, id: crypto.randomUUID() },
           ],
+          updatedAt: Date.now(),
         }
         : thread
     )))
@@ -242,13 +264,26 @@ function App() {
       return
     }
 
+    const isFirstMessage = messages.length === 0
+
     setInput('')
     setIsSubmitting(true)
+    setIsChatListOpen(false)
     setChatThreads((current) => current.map((thread) => (
-      thread.id === currentChatId && thread.messages.length === 0
-        ? { ...thread, title: formatChatTitle(trimmedPrompt) }
+      thread.id === currentChatId && isFirstMessage
+        ? {
+          ...thread,
+          title: formatChatTitle(trimmedPrompt),
+          titleStatus: authSession?.accessToken ? 'pending' : 'ready',
+          updatedAt: Date.now(),
+        }
         : thread
     )))
+
+    if (isFirstMessage) {
+      void updateChatTitleFromAi(currentChatId, trimmedPrompt, mode)
+    }
+
     addMessage({ from: 'user', text: trimmedPrompt })
 
     try {
@@ -393,11 +428,58 @@ function App() {
   }
 
   const handleNewChat = () => {
+    const reusableThread = chatThreads.find((thread) => thread.messages.length === 0)
+
+    if (reusableThread) {
+      setActiveChatId(reusableThread.id)
+      setInput('')
+      setStatusText('')
+      setIsChatListOpen(true)
+      return
+    }
+
     const nextThread = createChatThread()
     setChatThreads((current) => [nextThread, ...current])
     setActiveChatId(nextThread.id)
     setInput('')
     setStatusText('')
+    setIsChatListOpen(true)
+  }
+
+  const handleOpenChat = (chatId: string) => {
+    setActiveChatId(chatId)
+    setInput('')
+    setStatusText('')
+    setIsChatListOpen(false)
+  }
+
+  const updateChatTitleFromAi = async (chatId: string, prompt: string, titleMode: CopilotMode) => {
+    try {
+      const title = await requestChatTitle(prompt, {
+        accessToken: authSession?.accessToken,
+        mode: titleMode,
+      })
+
+      setChatThreads((current) => current.map((thread) => (
+        thread.id === chatId
+          ? {
+            ...thread,
+            title,
+            titleStatus: 'ready',
+            updatedAt: Date.now(),
+          }
+          : thread
+      )))
+    } catch {
+      setChatThreads((current) => current.map((thread) => (
+        thread.id === chatId
+          ? {
+            ...thread,
+            titleStatus: 'ready',
+          }
+          : thread
+      )))
+    }
   }
 
   const startResize = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -478,21 +560,6 @@ function App() {
             </button>
           </div>
         </header>
-        {chatThreads.length > 1 ? (
-          <section className="chatThreads" aria-label="Chats">
-            {chatThreads.map((thread) => (
-              <button
-                key={thread.id}
-                type="button"
-                className={thread.id === currentChatId ? 'chatThread active' : 'chatThread'}
-                onClick={() => setActiveChatId(thread.id)}
-                title={thread.title}
-              >
-                {thread.title}
-              </button>
-            ))}
-          </section>
-        ) : null}
         <section className="modeSwitch" aria-label="Modo do Copilot">
           <button
             type="button"
@@ -581,14 +648,39 @@ function App() {
             </>
           )}
         </section>
-        <div className="conversation">
-          {messages.map((message) => (
-            <article key={message.id} className={`message message-${message.from}`}>
-              <strong>{message.from === 'user' ? 'Voce' : 'Copilot'}</strong>
-              <p>{message.text}</p>
-            </article>
-          ))}
-          <div ref={conversationEndRef} />
+        <div className={isChatListOpen ? 'conversation conversation-history' : 'conversation'}>
+          {isChatListOpen ? (
+            <section className="chatHistory" aria-label="Historico de chats">
+              <div className="chatHistoryHeader">
+                <strong>Chats</strong>
+                <span>{chatThreads.length}</span>
+              </div>
+              <div className="chatHistoryList">
+                {visibleChatThreads.map((thread) => (
+                  <button
+                    key={thread.id}
+                    type="button"
+                    className={thread.id === currentChatId ? 'chatHistoryItem active' : 'chatHistoryItem'}
+                    onClick={() => handleOpenChat(thread.id)}
+                    title={thread.title}
+                  >
+                    <MessageSquare size={15} strokeWidth={2} aria-hidden="true" />
+                    <span>{thread.titleStatus === 'pending' ? 'Gerando titulo...' : thread.title}</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <>
+              {messages.map((message) => (
+                <article key={message.id} className={`message message-${message.from}`}>
+                  <strong>{message.from === 'user' ? 'Voce' : 'Copilot'}</strong>
+                  <p>{message.text}</p>
+                </article>
+              ))}
+              <div ref={conversationEndRef} />
+            </>
+          )}
         </div>
         {isGeoGebraReady && statusText ? (
           <p className={`statusMessage status-${readStatusTone(statusText)}`}>{statusText}</p>
@@ -695,11 +787,106 @@ function delay(milliseconds: number) {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds))
 }
 
+function readInitialChatState(): ChatState {
+  if (typeof window === 'undefined') {
+    const thread = createChatThread()
+    return { threads: [thread], activeChatId: thread.id }
+  }
+
+  try {
+    const storedValue = window.localStorage.getItem(CHAT_STORAGE_KEY)
+
+    if (!storedValue) {
+      const thread = createChatThread()
+      return { threads: [thread], activeChatId: thread.id }
+    }
+
+    const parsed = JSON.parse(storedValue) as Partial<ChatState>
+    const threads = Array.isArray(parsed.threads)
+      ? parsed.threads
+        .map(normalizeStoredThread)
+        .filter((thread): thread is ChatThread => thread !== null)
+        .sort((left, right) => right.updatedAt - left.updatedAt)
+      : []
+
+    if (threads.length === 0) {
+      const thread = createChatThread()
+      return { threads: [thread], activeChatId: thread.id }
+    }
+
+    const activeChatId = threads.some((thread) => thread.id === parsed.activeChatId)
+      ? parsed.activeChatId!
+      : threads[0].id
+
+    return { threads, activeChatId }
+  } catch {
+    const thread = createChatThread()
+    return { threads: [thread], activeChatId: thread.id }
+  }
+}
+
+function storeChatState(threads: ChatThread[], activeChatId: string) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(
+    CHAT_STORAGE_KEY,
+    JSON.stringify({
+      threads: threads.slice(0, 40),
+      activeChatId,
+    }),
+  )
+}
+
+function normalizeStoredThread(thread: unknown): ChatThread | null {
+  if (!thread || typeof thread !== 'object') {
+    return null
+  }
+
+  const candidate = thread as Partial<ChatThread>
+
+  if (typeof candidate.id !== 'string') {
+    return null
+  }
+
+  return {
+    id: candidate.id,
+    title: typeof candidate.title === 'string' && candidate.title.trim()
+      ? candidate.title
+      : 'Novo chat',
+    titleStatus: candidate.titleStatus === 'pending' ? 'pending' : 'ready',
+    messages: Array.isArray(candidate.messages)
+      ? candidate.messages.filter(isStoredMessage)
+      : [],
+    createdAt: typeof candidate.createdAt === 'number' ? candidate.createdAt : Date.now(),
+    updatedAt: typeof candidate.updatedAt === 'number' ? candidate.updatedAt : Date.now(),
+  }
+}
+
+function isStoredMessage(message: unknown): message is Message {
+  if (!message || typeof message !== 'object') {
+    return false
+  }
+
+  const candidate = message as Partial<Message>
+  return (
+    typeof candidate.id === 'string' &&
+    (candidate.from === 'user' || candidate.from === 'copilot') &&
+    typeof candidate.text === 'string'
+  )
+}
+
 function createChatThread(): ChatThread {
+  const now = Date.now()
+
   return {
     id: crypto.randomUUID(),
     title: 'Novo chat',
+    titleStatus: 'new',
     messages: [],
+    createdAt: now,
+    updatedAt: now,
   }
 }
 

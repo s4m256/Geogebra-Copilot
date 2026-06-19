@@ -1,6 +1,9 @@
 [functions.ai]
 verify_jwt = true
 
+[functions.chat-title]
+verify_jwt = true
+
 [functions.create-checkout-session]
 verify_jwt = true
 

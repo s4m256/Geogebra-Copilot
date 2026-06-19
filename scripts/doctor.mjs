@@ -17,6 +17,7 @@ const checks = [
   checkEnv(env, 'VITE_SUPABASE_FUNCTIONS_URL'),
   checkFile('supabase/config.toml'),
   checkFile('supabase/functions/ai/index.ts'),
+  checkFile('supabase/functions/chat-title/index.ts'),
   checkFile('supabase/functions/create-checkout-session/index.ts'),
   checkFile('supabase/functions/create-billing-portal/index.ts'),
   checkFile('supabase/functions/stripe-webhook/index.ts'),

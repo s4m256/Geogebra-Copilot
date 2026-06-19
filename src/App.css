@@ -206,47 +206,6 @@
   display: none;
 }
 
-.chatThreads {
-  display: flex;
-  gap: 6px;
-  min-width: 0;
-  overflow-x: auto;
-  padding: 7px 10px;
-  border-bottom: 1px solid var(--chat-line-soft);
-  scrollbar-width: none;
-}
-
-.chatThreads::-webkit-scrollbar {
-  display: none;
-}
-
-.chatThread {
-  flex: 0 0 auto;
-  max-width: 150px;
-  height: 28px;
-  overflow: hidden;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--chat-muted);
-  padding: 0 9px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font: 12px/1 var(--sans);
-  cursor: pointer;
-}
-
-.chatThread:hover {
-  background: #202024;
-  color: #ffffff;
-}
-
-.chatThread.active {
-  border-color: #303036;
-  background: #24242a;
-  color: #ffffff;
-}
-
 .accountStrip {
   display: flex;
   align-items: center;
@@ -339,6 +298,10 @@
   scrollbar-width: thin;
 }
 
+.conversation-history {
+  padding: 0;
+}
+
 .conversation::-webkit-scrollbar {
   width: 8px;
 }
@@ -348,6 +311,74 @@
   border-radius: 999px;
   background: #3a3a3d;
   background-clip: padding-box;
+}
+
+.chatHistory {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 100%;
+  padding: 12px;
+}
+
+.chatHistoryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 28px;
+  color: var(--chat-muted);
+  font-size: 12px;
+}
+
+.chatHistoryHeader strong {
+  color: #e8e8e8;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.chatHistoryHeader span {
+  color: #73737a;
+  font-size: 11px;
+}
+
+.chatHistoryList {
+  display: grid;
+  gap: 3px;
+}
+
+.chatHistoryItem {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  min-height: 34px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--chat-muted);
+  padding: 0 8px;
+  text-align: left;
+  font: 12px/1 var(--sans);
+  cursor: pointer;
+}
+
+.chatHistoryItem:hover {
+  background: #202024;
+  color: #ffffff;
+}
+
+.chatHistoryItem.active {
+  border-color: #303036;
+  background: #24242a;
+  color: #ffffff;
+}
+
+.chatHistoryItem span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .message {
@@ -543,7 +574,6 @@
     min-height: 52px;
   }
 
-  .copilotPaneCollapsed .chatThreads,
   .copilotPaneCollapsed .modeSwitch,
   .copilotPaneCollapsed .accountStrip,
   .copilotPaneCollapsed .conversation,
