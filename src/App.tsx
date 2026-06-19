@@ -54,6 +54,7 @@ function App() {
   const [authEmail, setAuthEmail] = useState('')
   const [authSession, setAuthSession] = useState<AuthSession | null>(null)
   const [plan, setPlan] = useState<Plan>('free')
+  const [usageInfo, setUsageInfo] = useState<ConstructionResponse['usage']>(undefined)
   const [isAccountBusy, setIsAccountBusy] = useState(false)
   const appShellRef = useRef<HTMLElement | null>(null)
   const geogebraHostRef = useRef<HTMLDivElement | null>(null)
@@ -196,6 +197,7 @@ function App() {
         accessToken: authSession?.accessToken,
         mode,
       })
+      setUsageInfo(response.usage)
 
       if (response.commands.length === 0) {
         setLatestCommands([])
@@ -269,6 +271,7 @@ function App() {
       clearStoredSession()
       setAuthSession(null)
       setPlan('free')
+      setUsageInfo(undefined)
       setIsAccountBusy(false)
     }
   }
@@ -462,7 +465,7 @@ function App() {
             <>
               <div className="accountIdentity">
                 <span>{authSession.user.email ?? 'Conta'}</span>
-                <strong>{plan === 'pro' ? 'Pro' : 'Free'}</strong>
+                <strong>{formatPlanLabel(plan, usageInfo)}</strong>
               </div>
               {plan === 'pro' ? (
                 <button
@@ -565,6 +568,18 @@ function App() {
 
 function hasGeoGebraDebug(result: CommandExecutionResult) {
   return result.failed.length > 0 || result.warnings.length > 0
+}
+
+function formatPlanLabel(plan: Plan, usage: ConstructionResponse['usage']) {
+  if (plan === 'pro') {
+    return 'Pro'
+  }
+
+  if (typeof usage?.remainingToday === 'number') {
+    return `Free - ${usage.remainingToday} restantes`
+  }
+
+  return 'Free'
 }
 
 function formatCompiledGeoGebraCommands(parsed: NormalizeResult) {

@@ -263,6 +263,9 @@
   color: var(--ggb-primary-variant-color);
   font-size: 10px;
   text-transform: uppercase;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .accountUnavailable {

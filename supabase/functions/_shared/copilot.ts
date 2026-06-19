@@ -89,29 +89,85 @@ export async function handleCopilotRequest(request: Request) {
     return jsonResponse({ error: 'O modo Resolver faz parte do plano Pro.' }, 402)
   }
 
-  if (plan === 'free' && (await readUsageToday(user.id)) >= readFreeDailyLimit()) {
+  const usageBeforeRequest = await readUsageToday(user.id)
+  const freeDailyLimit = readFreeDailyLimit()
+
+  if (plan === 'free' && usageBeforeRequest >= freeDailyLimit) {
     return jsonResponse({ error: 'Free daily limit reached.' }, 429)
   }
 
   const config = plan === 'pro' ? readOpenAiConfig(plan) : readGroqConfig(plan)
-  const content = await requestChatCompletion(config, [
+  const messages: ChatMessage[] = [
     { role: 'system', content: buildSystemPrompt(plan, mode) },
     { role: 'user', content: prompt.trim() },
-  ])
-  const parsed = parseModelContent(content, mode)
+  ]
+  let modelContent = await requestChatCompletion(config, messages)
+  let parsed = parseModelContent(modelContent, mode)
+  let repaired = false
+
+  if (!parsed.ok) {
+    const repairContent = await requestChatCompletion(config, [
+      ...messages,
+      {
+        role: 'user',
+        content: buildRepairPrompt(parsed.error, modelContent, mode),
+      },
+    ])
+
+    parsed = parseModelContent(repairContent, mode)
+    modelContent = repairContent
+    repaired = true
+  }
 
   if (!parsed.ok) {
     return jsonResponse({ error: parsed.error }, 502)
   }
 
+  let commands: string[]
+
+  try {
+    commands = parsed.construction ? compileSemanticConstruction(parsed.construction) : []
+  } catch (error) {
+    if (repaired) {
+      return jsonResponse({ error: formatUnknownError(error) }, 502)
+    }
+
+    const repairContent = await requestChatCompletion(config, [
+      ...messages,
+      {
+        role: 'user',
+        content: buildRepairPrompt(`Compiler error: ${formatUnknownError(error)}`, modelContent, mode),
+      },
+    ])
+
+    parsed = parseModelContent(repairContent, mode)
+    repaired = true
+
+    if (!parsed.ok) {
+      return jsonResponse({ error: parsed.error }, 502)
+    }
+
+    try {
+      commands = parsed.construction ? compileSemanticConstruction(parsed.construction) : []
+    } catch (secondError) {
+      return jsonResponse({ error: formatUnknownError(secondError) }, 502)
+    }
+  }
+
   await recordUsage(user.id, plan)
+  const usedToday = usageBeforeRequest + 1
 
   return jsonResponse({
-    commands: parsed.construction ? compileSemanticConstruction(parsed.construction) : [],
+    commands,
     explanation: parsed.explanation,
+    usage: {
+      usedToday,
+      freeDailyLimit: plan === 'free' ? freeDailyLimit : null,
+      remainingToday: plan === 'free' ? Math.max(freeDailyLimit - usedToday, 0) : null,
+    },
     debug: {
       provider: 'backend',
-      repaired: false,
+      repaired,
       model: config.model,
       plan,
       mode,
@@ -352,6 +408,8 @@ function compileObject(object: GeometryObject, state: CompilerState) {
       addCommand(state, object.name, `Reflect(${object.point}, ${ensureLineReference(state, object.line)})`)
       return
   }
+
+  throw new Error(`Unsupported semantic object type: ${(object as { type?: unknown }).type}`)
 }
 
 function ensureLineReference(state: CompilerState, reference: LineReference) {
@@ -411,6 +469,19 @@ function buildSystemPrompt(plan: Plan, mode: CopilotMode) {
   ].join('\n')
 }
 
+function buildRepairPrompt(error: string, invalidContent: string, mode: CopilotMode) {
+  return [
+    'Your previous response did not match the required JSON contract.',
+    'Return corrected JSON only, preserving the user intent.',
+    mode === 'draw'
+      ? 'Draw mode requires a construction with a non-empty objects array.'
+      : 'Solve mode requires an explanation string and may include a construction with objects.',
+    'Do not return markdown, comments, raw GeoGebra commands, or unrelated objects.',
+    `Validation error: ${error}`,
+    `Invalid response: ${invalidContent}`,
+  ].join('\n')
+}
+
 function mustReadEnv(name: string) {
   const value = Deno.env.get(name)
 
@@ -419,4 +490,8 @@ function mustReadEnv(name: string) {
   }
 
   return value
+}
+
+function formatUnknownError(error: unknown) {
+  return error instanceof Error ? error.message : 'Unexpected compiler error.'
 }

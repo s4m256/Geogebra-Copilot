@@ -3,6 +3,11 @@ export type CopilotMode = 'draw' | 'solve'
 export type ConstructionResponse = {
   commands: string[]
   explanation: string | null
+  usage?: {
+    usedToday: number
+    freeDailyLimit: number | null
+    remainingToday: number | null
+  }
   debug: {
     provider: 'backend'
     repaired: boolean
@@ -54,6 +59,7 @@ async function requestBackendConstruction(
   return {
     commands: data.commands,
     explanation: data.explanation ?? null,
+    usage: data.usage,
     debug: data.debug ?? { provider: 'backend', repaired: false, model: 'backend' },
   }
 }
