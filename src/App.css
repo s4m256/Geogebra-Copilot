@@ -79,7 +79,7 @@
 
 .copilotPane {
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr) auto auto auto;
+  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto auto;
   height: 100%;
   min-width: 0;
   min-height: 0;
@@ -171,25 +171,27 @@
   gap: 5px;
 }
 
-.toolButton {
-  height: 28px;
-  min-width: 0;
+.iconButton {
+  display: inline-grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
   border: 1px solid #303036;
   border-radius: 7px;
   background: #202024;
   color: var(--chat-muted);
-  padding: 0 8px;
-  font: 12px/1 var(--sans);
+  padding: 0;
+  font: 18px/1 var(--sans);
   cursor: pointer;
 }
 
-.toolButton:hover:not(:disabled) {
+.iconButton:hover:not(:disabled) {
   color: #ffffff;
   border-color: #454550;
   background: #28282e;
 }
 
-.toolButton:disabled {
+.iconButton:disabled {
   cursor: default;
   opacity: 0.42;
 }
@@ -198,18 +200,45 @@
   display: none;
 }
 
-.debugToggle {
+.chatThreads {
   display: flex;
-  align-items: center;
-  gap: 5px;
+  gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--chat-line-soft);
+  scrollbar-width: none;
+}
+
+.chatThreads::-webkit-scrollbar {
+  display: none;
+}
+
+.chatThread {
   flex: 0 0 auto;
+  max-width: 150px;
+  height: 28px;
+  overflow: hidden;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
   color: var(--chat-muted);
-  font-size: 12px;
+  padding: 0 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 12px/1 var(--sans);
   cursor: pointer;
 }
 
-.debugToggle input {
-  accent-color: var(--ggb-primary-color);
+.chatThread:hover {
+  background: #202024;
+  color: #ffffff;
+}
+
+.chatThread.active {
+  border-color: #303036;
+  background: #24242a;
+  color: #ffffff;
 }
 
 .accountStrip {
@@ -449,18 +478,6 @@
   color: #9fc9f3;
 }
 
-.commandsDebug {
-  max-height: 132px;
-  margin: 0;
-  overflow: auto;
-  padding: 8px 12px;
-  border-top: 1px solid var(--chat-line-soft);
-  background: #111113;
-  color: #cfcfe6;
-  font: 11px/1.45 var(--mono);
-  white-space: pre;
-}
-
 .promptForm {
   position: relative;
   display: block;
@@ -607,11 +624,11 @@
     grid-template-rows: 52px 0 0 0 0 0 0;
   }
 
+  .copilotPaneCollapsed .chatThreads,
   .copilotPaneCollapsed .modeSwitch,
   .copilotPaneCollapsed .accountStrip,
   .copilotPaneCollapsed .conversation,
   .copilotPaneCollapsed .statusMessage,
-  .copilotPaneCollapsed .commandsDebug,
   .copilotPaneCollapsed .promptForm {
     display: none;
   }
@@ -624,7 +641,7 @@
 
 @media (max-width: 560px), (max-height: 560px) {
   .copilotPane {
-    grid-template-rows: auto auto auto minmax(0, 1fr) auto auto auto;
+    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto auto;
   }
 
   .copilotHeader {
@@ -692,46 +709,13 @@
     flex: 1;
   }
 
-  .toolButton {
-    display: inline-grid;
-    place-items: center;
-    width: 34px;
-    padding: 0;
-    font-size: 0;
-  }
-
-  .mobileToggleButton::after {
-    content: "Chat";
-    font-size: 11px;
-  }
-
-  .clearGeoButton::after {
-    content: "Geo";
-    font-size: 11px;
-  }
-
-  .clearChatButton::after {
-    content: "Msg";
-    font-size: 11px;
-  }
-
-  .copyCommandsButton::after {
-    content: "Cmd";
-    font-size: 11px;
-  }
-
-  .debugToggle {
-    width: 30px;
-    justify-content: center;
-    overflow: hidden;
-    font-size: 0;
-  }
-
-  .debugToggle input {
-    flex: 0 0 auto;
+  .iconButton {
+    width: 32px;
+    height: 32px;
   }
 
   .accountStrip button {
-    flex: 1 1 auto;
+    width: 30px;
+    padding: 0;
   }
 }

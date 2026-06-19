@@ -7,10 +7,8 @@ import type {
 } from 'react'
 import { requestConstruction, type ConstructionResponse, type CopilotMode } from './ai'
 import {
-  clearGeoGebraConstruction,
   createGeoGebraApplet,
   executeGeoGebraCommands,
-  type CommandExecutionResult,
   type GeoGebraApi,
 } from './geogebra'
 import { normalizeGeoGebraBlock, type NormalizeResult } from './lib/ggbCommandNormalizer'
@@ -39,6 +37,12 @@ type Message = {
   text: string
 }
 
+type ChatThread = {
+  id: string
+  title: string
+  messages: Message[]
+}
+
 const EXAMPLE_PROMPTS: Record<CopilotMode, string[]> = {
   draw: [
     'Desenhe um triangulo ABC e marque o ortocentro.',
@@ -52,17 +56,17 @@ const EXAMPLE_PROMPTS: Record<CopilotMode, string[]> = {
   ],
 }
 
+const INITIAL_CHAT_THREAD = createChatThread()
+
 function App() {
   const [input, setInput] = useState('')
-  const [messages, setMessages] = useState<Message[]>([])
+  const [chatThreads, setChatThreads] = useState<ChatThread[]>(() => [INITIAL_CHAT_THREAD])
+  const [activeChatId, setActiveChatId] = useState(() => INITIAL_CHAT_THREAD.id)
   const [statusText, setStatusText] = useState('Carregando GeoGebra...')
   const [isGeoGebraReady, setIsGeoGebraReady] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showDebug, setShowDebug] = useState(false)
-  const [latestCommands, setLatestCommands] = useState<string[]>([])
   const [chatWidth, setChatWidth] = useState(360)
   const [isChatExpanded, setIsChatExpanded] = useState(true)
-  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
   const [mode, setMode] = useState<CopilotMode>('draw')
   const [authEmail, setAuthEmail] = useState('')
   const [authSession, setAuthSession] = useState<AuthSession | null>(null)
@@ -73,6 +77,9 @@ function App() {
   const geogebraHostRef = useRef<HTMLDivElement | null>(null)
   const geogebraApiRef = useRef<GeoGebraApi | null>(null)
   const conversationEndRef = useRef<HTMLDivElement | null>(null)
+  const currentChatId = activeChatId ?? chatThreads[0]?.id ?? ''
+  const activeChat = chatThreads.find((thread) => thread.id === currentChatId) ?? chatThreads[0]
+  const messages = activeChat?.messages ?? []
 
   useEffect(() => {
     const host = geogebraHostRef.current
@@ -101,15 +108,22 @@ function App() {
   }, [])
 
   const addMessage = useCallback((message: Omit<Message, 'id'>) => {
-    setMessages((current) => [
-      ...current,
-      { ...message, id: crypto.randomUUID() },
-    ])
-  }, [])
+    setChatThreads((current) => current.map((thread) => (
+      thread.id === currentChatId
+        ? {
+          ...thread,
+          messages: [
+            ...thread.messages,
+            { ...message, id: crypto.randomUUID() },
+          ],
+        }
+        : thread
+    )))
+  }, [currentChatId])
 
   useEffect(() => {
     conversationEndRef.current?.scrollIntoView({ block: 'end' })
-  }, [messages])
+  }, [currentChatId, messages.length])
 
   const runCommands = useCallback((commands: string[]) => {
     const api = geogebraApiRef.current
@@ -233,6 +247,11 @@ function App() {
 
     setInput('')
     setIsSubmitting(true)
+    setChatThreads((current) => current.map((thread) => (
+      thread.id === currentChatId && thread.messages.length === 0
+        ? { ...thread, title: formatChatTitle(trimmedPrompt) }
+        : thread
+    )))
     addMessage({ from: 'user', text: trimmedPrompt })
 
     try {
@@ -243,9 +262,8 @@ function App() {
       setUsageInfo(response.usage)
 
       if (response.commands.length === 0) {
-        setLatestCommands([])
         setStatusText('')
-        addMessage({ from: 'copilot', text: formatCopilotResponse(response, null, showDebug) })
+        addMessage({ from: 'copilot', text: formatCopilotResponse(response, null) })
         return
       }
 
@@ -257,16 +275,11 @@ function App() {
         return
       }
 
-      const result = runCommands(parsed.commands)
-      setLatestCommands(parsed.commands)
+      runCommands(parsed.commands)
       addMessage({
         from: 'copilot',
-        text: formatCopilotResponse(response, parsed, showDebug),
+        text: formatCopilotResponse(response, parsed),
       })
-
-      if (showDebug && result && hasGeoGebraDebug(result)) {
-        addMessage({ from: 'copilot', text: formatGeoGebraDebug(result) })
-      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Erro desconhecido'
       setStatusText(message)
@@ -374,25 +387,6 @@ function App() {
     }
   }
 
-  const handleRefreshPlan = async () => {
-    if (!authSession || isAccountBusy) {
-      return
-    }
-
-    setIsAccountBusy(true)
-
-    try {
-      const nextPlan = await fetchPlan(authSession.accessToken, authSession.user.id)
-      setPlan(nextPlan)
-      setStatusText(nextPlan === 'pro' ? 'Plano Pro ativo.' : 'Plano Free ativo.')
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Erro ao atualizar plano.'
-      setStatusText(message)
-    } finally {
-      setIsAccountBusy(false)
-    }
-  }
-
   const handleModeChange = (nextMode: CopilotMode) => {
     if (nextMode === 'solve' && !isProPlan(plan)) {
       setStatusText('Resolver e um recurso Pro. Assine para liberar a IA de resolucao.')
@@ -401,36 +395,12 @@ function App() {
     setMode(nextMode)
   }
 
-  const handleClearConstruction = () => {
-    if (!clearGeoGebraConstruction(geogebraApiRef.current)) {
-      setStatusText('GeoGebra ainda nao esta pronto.')
-      return
-    }
-
-    setLatestCommands([])
-    setStatusText('Construcao limpa.')
-  }
-
-  const handleClearConversation = () => {
-    setMessages([])
+  const handleNewChat = () => {
+    const nextThread = createChatThread()
+    setChatThreads((current) => [nextThread, ...current])
+    setActiveChatId(nextThread.id)
+    setInput('')
     setStatusText('')
-  }
-
-  const handleCopyCommands = async () => {
-    if (latestCommands.length === 0) {
-      setStatusText('Nenhum comando gerado ainda.')
-      return
-    }
-
-    try {
-      await navigator.clipboard.writeText(latestCommands.join('\n'))
-      setCopyStatus('copied')
-      window.setTimeout(() => setCopyStatus('idle'), 1400)
-    } catch {
-      setCopyStatus('failed')
-      setStatusText('Nao foi possivel copiar os comandos.')
-      window.setTimeout(() => setCopyStatus('idle'), 1800)
-    }
   }
 
   const startResize = (event: ReactPointerEvent<HTMLDivElement>) => {
@@ -488,54 +458,38 @@ function App() {
           <div className="copilotActions" aria-label="Acoes">
             <button
               type="button"
-              className="toolButton mobileOnly mobileToggleButton"
+              className="iconButton"
+              onClick={handleNewChat}
+              aria-label="Novo chat"
+              title="Novo chat"
+            >
+              +
+            </button>
+            <button
+              type="button"
+              className="iconButton mobileOnly"
               onClick={() => setIsChatExpanded((current) => !current)}
               aria-expanded={isChatExpanded}
               aria-label={isChatExpanded ? 'Ocultar chat' : 'Mostrar chat'}
               title={isChatExpanded ? 'Ocultar chat' : 'Mostrar chat'}
             >
-              {isChatExpanded ? 'Ocultar' : 'Chat'}
+              {isChatExpanded ? 'v' : '^'}
             </button>
-            <button
-              type="button"
-              className="toolButton clearGeoButton"
-              onClick={handleClearConstruction}
-              disabled={!isGeoGebraReady}
-              aria-label="Limpar desenho"
-              title="Limpar desenho"
-            >
-              Desenho
-            </button>
-            <button
-              type="button"
-              className="toolButton clearChatButton"
-              onClick={handleClearConversation}
-              disabled={messages.length === 0}
-              aria-label="Limpar chat"
-              title="Limpar chat"
-            >
-              Chat
-            </button>
-            <button
-              type="button"
-              className="toolButton copyCommandsButton"
-              onClick={handleCopyCommands}
-              disabled={latestCommands.length === 0}
-              aria-label="Copiar comandos"
-              title="Copiar comandos"
-            >
-              {copyStatus === 'copied' ? 'Copiado' : 'Copiar'}
-            </button>
-            <label className="debugToggle" title="Mostrar comandos GeoGebra gerados">
-              <input
-                type="checkbox"
-                checked={showDebug}
-                onChange={(event) => setShowDebug(event.target.checked)}
-              />
-              Comandos
-            </label>
           </div>
         </header>
+        <section className="chatThreads" aria-label="Chats">
+          {chatThreads.map((thread) => (
+            <button
+              key={thread.id}
+              type="button"
+              className={thread.id === currentChatId ? 'chatThread active' : 'chatThread'}
+              onClick={() => setActiveChatId(thread.id)}
+              title={thread.title}
+            >
+              {thread.title}
+            </button>
+          ))}
+        </section>
         <section className="modeSwitch" aria-label="Modo do Copilot">
           <button
             type="button"
@@ -561,33 +515,35 @@ function App() {
                 <span>{authSession.user.email ?? 'Conta'}</span>
                 <strong>{formatPlanLabel(plan, usageInfo)}</strong>
               </div>
-              <button
-                type="button"
-                onClick={handleRefreshPlan}
-                disabled={isAccountBusy}
-                title="Atualizar plano"
-              >
-                Atualizar
-              </button>
               {isProPlan(plan) ? (
                 <button
                   type="button"
                   onClick={handleBillingPortal}
                   disabled={isAccountBusy || !isCheckoutConfigured()}
+                  aria-label="Gerenciar assinatura"
+                  title="Gerenciar assinatura"
                 >
-                  {isAccountBusy ? 'Abrindo...' : 'Gerenciar'}
+                  $
                 </button>
               ) : (
                 <button
                   type="button"
                   onClick={handleUpgrade}
                   disabled={isAccountBusy || !isCheckoutConfigured()}
+                  aria-label="Assinar Pro"
+                  title="Assinar Pro"
                 >
-                  {isAccountBusy ? 'Abrindo...' : 'Assinar Pro'}
+                  *
                 </button>
               )}
-              <button type="button" onClick={handleSignOut} disabled={isAccountBusy}>
-                Sair
+              <button
+                type="button"
+                onClick={handleSignOut}
+                disabled={isAccountBusy}
+                aria-label="Sair"
+                title="Sair"
+              >
+                x
               </button>
             </>
           ) : (
@@ -606,8 +562,10 @@ function App() {
                     type="button"
                     onClick={handleLogin}
                     disabled={isAccountBusy || !authEmail.trim()}
+                    aria-label="Entrar"
+                    title="Entrar"
                   >
-                    {isAccountBusy ? 'Enviando...' : 'Entrar'}
+                    {isAccountBusy ? '...' : '>'}
                   </button>
                 </>
               ) : (
@@ -627,8 +585,10 @@ function App() {
                     type="button"
                     onClick={handleUpgrade}
                     disabled={isAccountBusy || !isCheckoutConfigured()}
+                    aria-label="Assinar Pro"
+                    title="Assinar Pro"
                   >
-                    Assinar Pro
+                    *
                   </button>
                 </div>
               ) : null}
@@ -656,9 +616,6 @@ function App() {
         {isGeoGebraReady && statusText ? (
           <p className={`statusMessage status-${readStatusTone(statusText)}`}>{statusText}</p>
         ) : null}
-        {showDebug && latestCommands.length > 0 ? (
-          <pre className="commandsDebug">{latestCommands.join('\n')}</pre>
-        ) : null}
         <form className="promptForm" onSubmit={handleSubmit}>
           <textarea
             value={input}
@@ -680,10 +637,6 @@ function App() {
       </aside>
     </main>
   )
-}
-
-function hasGeoGebraDebug(result: CommandExecutionResult) {
-  return result.failed.length > 0 || result.warnings.length > 0
 }
 
 function readStatusTone(message: string) {
@@ -765,6 +718,18 @@ function delay(milliseconds: number) {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds))
 }
 
+function createChatThread(): ChatThread {
+  return {
+    id: crypto.randomUUID(),
+    title: 'Novo chat',
+    messages: [],
+  }
+}
+
+function formatChatTitle(prompt: string) {
+  return prompt.length > 34 ? `${prompt.slice(0, 34).trim()}...` : prompt
+}
+
 function formatPlanLabel(plan: Plan, usage: ConstructionResponse['usage']) {
   if (isProPlan(plan)) {
     return 'Pro'
@@ -777,46 +742,13 @@ function formatPlanLabel(plan: Plan, usage: ConstructionResponse['usage']) {
   return 'Free'
 }
 
-function formatCompiledGeoGebraCommands(parsed: NormalizeResult) {
-  const sections: string[] = []
-
-  if (parsed.warnings.length > 0) {
-    sections.push(parsed.warnings.join('\n'))
-  }
-
-  sections.push(`Comandos GeoGebra gerados:\n\n\`\`\`geogebra\n${parsed.commands.join('\n')}\n\`\`\``)
-  return sections.filter(Boolean).join('\n\n')
-}
-
 function formatCopilotResponse(
   response: ConstructionResponse,
   parsed: NormalizeResult | null,
-  showDebug: boolean,
 ) {
   const sections: string[] = []
 
   sections.push(response.explanation || (parsed ? 'Construcao aplicada.' : 'Resposta concluida.'))
-
-  if (showDebug && parsed) {
-    sections.push(formatCompiledGeoGebraCommands(parsed))
-    sections.push(
-      [
-        `Provider: ${response.debug.provider}`,
-        `Modelo: ${response.debug.model}`,
-        `Modo: ${response.debug.mode ?? 'draw'}`,
-        `Reparo: ${response.debug.repaired ? 'sim' : 'nao'}`,
-      ].join('\n'),
-    )
-  } else if (showDebug) {
-    sections.push(
-      [
-        `Provider: ${response.debug.provider}`,
-        `Modelo: ${response.debug.model}`,
-        `Modo: ${response.debug.mode ?? 'solve'}`,
-        `Reparo: ${response.debug.repaired ? 'sim' : 'nao'}`,
-      ].join('\n'),
-    )
-  }
 
   return sections.join('\n\n')
 }
@@ -834,37 +766,6 @@ function formatParsedGeoGebraDebug(parsed: NormalizeResult) {
 
   if (parsed.commands.length > 0) {
     sections.push(`Comandos normalizados:\n\n\`\`\`geogebra\n${parsed.commands.join('\n')}\n\`\`\``)
-  }
-
-  return sections.join('\n\n')
-}
-
-function formatGeoGebraDebug(result: CommandExecutionResult) {
-  const sections: string[] = []
-  const validationFailures = result.failed.filter((failure) => failure.kind === 'validation')
-  const geogebraFailures = result.failed.filter((failure) => failure.kind === 'geogebra')
-
-  if (validationFailures.length > 0) {
-    const errors = validationFailures
-      .map(
-        (failure) =>
-          `Linha ${failure.line}: ${failure.message}\n${failure.command}`,
-      )
-      .join('\n\n')
-
-    sections.push(`Erros de validação (${validationFailures.length}):\n\n${errors}`)
-  }
-
-  if (geogebraFailures.length > 0) {
-    const errors = geogebraFailures
-      .map((failure) => `Linha ${failure.line}: ${failure.message}\n${failure.command}`)
-      .join('\n\n')
-
-    sections.push(`Erros do GeoGebra (${geogebraFailures.length}):\n\n${errors}`)
-  }
-
-  if (result.warnings.length > 0) {
-    sections.push(`Avisos (${result.warnings.length}):\n\n${result.warnings.join('\n')}`)
   }
 
   return sections.join('\n\n')
