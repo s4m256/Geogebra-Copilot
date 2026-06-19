@@ -386,7 +386,6 @@ function App() {
   const handleModeChange = (nextMode: CopilotMode) => {
     if (nextMode === 'solve' && plan !== 'pro') {
       setStatusText('Resolver e um recurso Pro. Assine para liberar a IA de resolucao.')
-      return
     }
 
     setMode(nextMode)
