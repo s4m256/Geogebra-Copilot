@@ -430,6 +430,15 @@ export function executeGeoGebraCommands(
   return result
 }
 
+export function clearGeoGebraConstruction(api: GeoGebraApi | null) {
+  if (!api) {
+    return false
+  }
+
+  clearExistingObjects(api)
+  return true
+}
+
 function getLineLineIntersectionFallback(
   api: GeoGebraApi,
   definitions: Map<string, ParsedCall>,

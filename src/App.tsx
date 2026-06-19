@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent } from 'react'
 import { requestConstruction, type ConstructionResponse } from './ai'
 import {
+  clearGeoGebraConstruction,
   createGeoGebraApplet,
   executeGeoGebraCommands,
   type CommandExecutionResult,
@@ -32,6 +33,12 @@ type Message = {
   text: string
 }
 
+const EXAMPLE_PROMPTS = [
+  'Desenhe um triangulo ABC e marque o ortocentro.',
+  'Crie um circulo com diametro AB.',
+  'Desenhe a mediatriz de AB e uma reta paralela a BC passando por A.',
+]
+
 function App() {
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<Message[]>([])
@@ -41,6 +48,8 @@ function App() {
   const [showDebug, setShowDebug] = useState(false)
   const [latestCommands, setLatestCommands] = useState<string[]>([])
   const [chatWidth, setChatWidth] = useState(360)
+  const [isChatExpanded, setIsChatExpanded] = useState(true)
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
   const [authEmail, setAuthEmail] = useState('')
   const [authSession, setAuthSession] = useState<AuthSession | null>(null)
   const [plan, setPlan] = useState<Plan>('free')
@@ -281,6 +290,38 @@ function App() {
     }
   }
 
+  const handleClearConstruction = () => {
+    if (!clearGeoGebraConstruction(geogebraApiRef.current)) {
+      setStatusText('GeoGebra ainda nao esta pronto.')
+      return
+    }
+
+    setLatestCommands([])
+    setStatusText('Construcao limpa.')
+  }
+
+  const handleClearConversation = () => {
+    setMessages([])
+    setStatusText('')
+  }
+
+  const handleCopyCommands = async () => {
+    if (latestCommands.length === 0) {
+      setStatusText('Nenhum comando gerado ainda.')
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(latestCommands.join('\n'))
+      setCopyStatus('copied')
+      window.setTimeout(() => setCopyStatus('idle'), 1400)
+    } catch {
+      setCopyStatus('failed')
+      setStatusText('Nao foi possivel copiar os comandos.')
+      window.setTimeout(() => setCopyStatus('idle'), 1800)
+    }
+  }
+
   const startResize = (event: ReactPointerEvent<HTMLDivElement>) => {
     const shell = appShellRef.current
 
@@ -310,7 +351,7 @@ function App() {
   return (
     <main
       ref={appShellRef}
-      className="appShell"
+      className={`appShell ${isChatExpanded ? '' : 'chatCollapsed'}`}
       style={{ '--chat-width': `${chatWidth}px` } as CSSProperties}
     >
       <section
@@ -327,20 +368,62 @@ function App() {
 
       <div className="paneResizeHandle" onPointerDown={startResize} aria-hidden="true" />
 
-      <aside className="copilotPane" aria-label="Copilot">
+      <aside className={`copilotPane ${isChatExpanded ? '' : 'copilotPaneCollapsed'}`} aria-label="Copilot">
         <header className="copilotHeader">
           <div className="copilotBrand">
             <img src="/ggb_copilot_logo.png" alt="" className="copilotLogo" />
             <span>Copilot</span>
           </div>
-          <label className="debugToggle" title="Mostrar comandos GeoGebra gerados">
-            <input
-              type="checkbox"
-              checked={showDebug}
-              onChange={(event) => setShowDebug(event.target.checked)}
-            />
-            Comandos
-          </label>
+          <div className="copilotActions" aria-label="Acoes">
+            <button
+              type="button"
+              className="toolButton mobileOnly mobileToggleButton"
+              onClick={() => setIsChatExpanded((current) => !current)}
+              aria-expanded={isChatExpanded}
+              aria-label={isChatExpanded ? 'Ocultar chat' : 'Mostrar chat'}
+              title={isChatExpanded ? 'Ocultar chat' : 'Mostrar chat'}
+            >
+              {isChatExpanded ? 'Ocultar' : 'Chat'}
+            </button>
+            <button
+              type="button"
+              className="toolButton clearGeoButton"
+              onClick={handleClearConstruction}
+              disabled={!isGeoGebraReady}
+              aria-label="Limpar desenho"
+              title="Limpar desenho"
+            >
+              Desenho
+            </button>
+            <button
+              type="button"
+              className="toolButton clearChatButton"
+              onClick={handleClearConversation}
+              disabled={messages.length === 0}
+              aria-label="Limpar chat"
+              title="Limpar chat"
+            >
+              Chat
+            </button>
+            <button
+              type="button"
+              className="toolButton copyCommandsButton"
+              onClick={handleCopyCommands}
+              disabled={latestCommands.length === 0}
+              aria-label="Copiar comandos"
+              title="Copiar comandos"
+            >
+              {copyStatus === 'copied' ? 'Copiado' : 'Copiar'}
+            </button>
+            <label className="debugToggle" title="Mostrar comandos GeoGebra gerados">
+              <input
+                type="checkbox"
+                checked={showDebug}
+                onChange={(event) => setShowDebug(event.target.checked)}
+              />
+              Comandos
+            </label>
+          </div>
         </header>
         <section className="accountStrip" aria-label="Conta">
           {authSession ? (
@@ -396,6 +479,22 @@ function App() {
           )}
         </section>
         <div className="conversation">
+          {messages.length === 0 ? (
+            <div className="emptyState">
+              <strong>Comece com um pedido de geometria</strong>
+              <div className="examplePrompts">
+                {EXAMPLE_PROMPTS.map((example) => (
+                  <button
+                    key={example}
+                    type="button"
+                    onClick={() => setInput(example)}
+                  >
+                    {example}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {messages.map((message) => (
             <article key={message.id} className={`message message-${message.from}`}>
               <strong>{message.from === 'user' ? 'Voce' : 'Copilot'}</strong>
