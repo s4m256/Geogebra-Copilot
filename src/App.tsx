@@ -530,7 +530,7 @@ function App() {
         <header className="copilotHeader">
           {isChatListOpen ? (
             <div className="copilotBrand">
-              <img src="/ggb_copilot_logo.png" alt="" className="copilotLogo" />
+              <span className="copilotDot" aria-hidden="true" />
               <span>Copilot</span>
             </div>
           ) : (

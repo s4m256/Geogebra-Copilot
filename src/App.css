@@ -179,11 +179,13 @@
   font-weight: 600;
 }
 
-.copilotLogo {
-  width: 22px;
-  height: 22px;
+.copilotDot {
+  width: 10px;
+  height: 10px;
   flex: 0 0 auto;
-  object-fit: contain;
+  border-radius: 50%;
+  background: var(--ggb-primary-color);
+  box-shadow: 0 0 0 3px rgb(101 87 210 / 18%);
 }
 
 .copilotActions {
