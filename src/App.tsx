@@ -666,7 +666,6 @@ function App() {
             <section className="chatHistory" aria-label="Historico de chats">
               <div className="chatHistoryHeader">
                 <strong>Chats</strong>
-                <span>{chatThreads.length}</span>
               </div>
               <div className="chatHistoryList">
                 {visibleChatThreads.map((thread) => (

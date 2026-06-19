@@ -359,11 +359,6 @@
   font-weight: 600;
 }
 
-.chatHistoryHeader span {
-  color: #73737a;
-  font-size: 11px;
-}
-
 .chatHistoryList {
   display: grid;
   gap: 3px;
