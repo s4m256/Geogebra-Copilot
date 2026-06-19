@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { isProPlan, planFromProfile, type Plan } from './subscription.ts'
 
-type Plan = 'free' | 'pro'
 type CopilotMode = 'draw' | 'solve'
 
 type ProviderConfig = {
@@ -85,7 +85,7 @@ export async function handleCopilotRequest(request: Request) {
 
   const plan = await readPlan(user?.id)
 
-  if (mode === 'solve' && plan !== 'pro') {
+  if (mode === 'solve' && !isProPlan(plan)) {
     return jsonResponse({ error: 'O modo Resolver faz parte do plano Pro.' }, 402)
   }
 
@@ -96,7 +96,7 @@ export async function handleCopilotRequest(request: Request) {
     return jsonResponse({ error: 'Free daily limit reached.' }, 429)
   }
 
-  const config = plan === 'pro' ? readOpenAiConfig(plan) : readGroqConfig(plan)
+  const config = isProPlan(plan) ? readOpenAiConfig(plan) : readGroqConfig(plan)
   const messages: ChatMessage[] = [
     { role: 'system', content: buildSystemPrompt(plan, mode) },
     { role: 'user', content: prompt.trim() },
@@ -213,11 +213,11 @@ async function readPlan(userId: string | undefined): Promise<Plan> {
   const supabase = createSupabaseAdmin()
   const { data } = await supabase
     .from('profiles')
-    .select('plan')
+    .select('plan,is_pro')
     .eq('id', userId)
     .maybeSingle()
 
-  return data?.plan === 'pro' ? 'pro' : 'free'
+  return planFromProfile(data)
 }
 
 async function recordUsage(userId: string, plan: Plan) {
@@ -271,7 +271,7 @@ async function requestChatCompletion(config: ProviderConfig, messages: ChatMessa
       model: config.model,
       messages,
       temperature: 0,
-      max_tokens: config.plan === 'pro' ? 2200 : 1200,
+      max_tokens: isProPlan(config.plan) ? 2200 : 1200,
       response_format: { type: 'json_object' },
     }),
   })
@@ -455,7 +455,7 @@ function buildSystemPrompt(plan: Plan, mode: CopilotMode) {
       'If no diagram is useful, return { "explanation": "..." }.',
       'Explain the reasoning in clear Portuguese with concise steps.',
       'Do not include markdown fences or raw GeoGebra commands.',
-      plan === 'pro'
+      isProPlan(plan)
         ? 'Use the stronger model for reasoning and keep the construction semantically valid when included.'
         : 'This mode is unavailable for free users.',
     ].join('\n')

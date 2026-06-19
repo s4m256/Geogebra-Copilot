@@ -20,6 +20,11 @@ type CheckoutResponse = {
   error?: string
 }
 
+type ProfilePlanResponse = {
+  plan?: Plan
+  is_pro?: boolean
+}
+
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string | undefined
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 const FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL as string | undefined
@@ -35,6 +40,10 @@ export function isCheckoutConfigured() {
 
 export function isBackendAiConfigured() {
   return Boolean(FUNCTIONS_URL)
+}
+
+export function isProPlan(plan: Plan) {
+  return plan === 'pro'
 }
 
 export function readStoredSession() {
@@ -176,7 +185,7 @@ export async function refreshSession(session: AuthSession) {
 export async function fetchPlan(accessToken: string, userId: string): Promise<Plan> {
   assertSupabaseConfigured()
 
-  const response = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=plan`, {
+  const response = await fetch(`${SUPABASE_URL}/rest/v1/profiles?id=eq.${userId}&select=plan,is_pro`, {
     headers: supabaseHeaders(accessToken),
   })
 
@@ -184,8 +193,8 @@ export async function fetchPlan(accessToken: string, userId: string): Promise<Pl
     return 'free'
   }
 
-  const rows = (await response.json()) as Array<{ plan?: Plan }>
-  return rows[0]?.plan === 'pro' ? 'pro' : 'free'
+  const rows = (await response.json()) as ProfilePlanResponse[]
+  return rows[0]?.is_pro || isProPlan(rows[0]?.plan ?? 'free') ? 'pro' : 'free'
 }
 
 export async function signOut(accessToken: string) {

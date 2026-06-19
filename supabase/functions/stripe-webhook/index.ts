@@ -1,5 +1,6 @@
 import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { isProPlan, planFromSubscriptionStatus } from '../_shared/subscription.ts'
 
 serve(async (request) => {
   if (request.method !== 'POST') {
@@ -27,11 +28,12 @@ serve(async (request) => {
   }
 
   const status = readSubscriptionStatus(event.type, stripeObject)
-  const plan = status === 'active' || status === 'trialing' ? 'pro' : 'free'
+  const plan = planFromSubscriptionStatus(status)
 
   await supabase.from('profiles').upsert({
     id: userId,
     plan,
+    is_pro: isProPlan(plan),
     stripe_customer_id: stripeObject.customer,
     stripe_subscription_id: readSubscriptionId(event.type, stripeObject),
     subscription_status: status,

@@ -21,6 +21,7 @@ import {
   fetchPlan,
   isBackendAiConfigured,
   isCheckoutConfigured,
+  isProPlan,
   isSupabaseConfigured,
   readSessionFromUrl,
   readStoredSession,
@@ -225,7 +226,7 @@ function App() {
       return
     }
 
-    if (mode === 'solve' && plan !== 'pro') {
+    if (mode === 'solve' && !isProPlan(plan)) {
       setStatusText('Resolver e um recurso Pro. Assine para liberar a IA de resolucao.')
       return
     }
@@ -393,7 +394,7 @@ function App() {
   }
 
   const handleModeChange = (nextMode: CopilotMode) => {
-    if (nextMode === 'solve' && plan !== 'pro') {
+    if (nextMode === 'solve' && !isProPlan(plan)) {
       setStatusText('Resolver e um recurso Pro. Assine para liberar a IA de resolucao.')
     }
 
@@ -547,10 +548,10 @@ function App() {
             type="button"
             className={mode === 'solve' ? 'modeButton active' : 'modeButton proModeButton'}
             onClick={() => handleModeChange('solve')}
-            title={plan === 'pro' ? 'Resolver problema' : 'Disponivel no Pro'}
+            title={isProPlan(plan) ? 'Resolver problema' : 'Disponivel no Pro'}
           >
             Resolver
-            {plan !== 'pro' ? <span>Pro</span> : null}
+            {!isProPlan(plan) ? <span>Pro</span> : null}
           </button>
         </section>
         <section className="accountStrip" aria-label="Conta">
@@ -568,7 +569,7 @@ function App() {
               >
                 Atualizar
               </button>
-              {plan === 'pro' ? (
+              {isProPlan(plan) ? (
                 <button
                   type="button"
                   onClick={handleBillingPortal}
@@ -619,7 +620,7 @@ function App() {
           {messages.length === 0 ? (
             <div className="emptyState">
               <strong>{mode === 'draw' ? 'Comece com um pedido de geometria' : 'Resolva com a IA Pro'}</strong>
-              {mode === 'solve' && plan !== 'pro' ? (
+              {mode === 'solve' && !isProPlan(plan) ? (
                 <div className="proCallout">
                   <span>Resolver usa a IA mais forte para explicar passos e criar a construcao quando ajudar.</span>
                   <button
@@ -765,7 +766,7 @@ function delay(milliseconds: number) {
 }
 
 function formatPlanLabel(plan: Plan, usage: ConstructionResponse['usage']) {
-  if (plan === 'pro') {
+  if (isProPlan(plan)) {
     return 'Pro'
   }
 

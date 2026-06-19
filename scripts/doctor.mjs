@@ -20,7 +20,9 @@ const checks = [
   checkFile('supabase/functions/create-checkout-session/index.ts'),
   checkFile('supabase/functions/create-billing-portal/index.ts'),
   checkFile('supabase/functions/stripe-webhook/index.ts'),
+  checkFile('supabase/functions/_shared/subscription.ts'),
   checkFile('supabase/migrations/20260618000100_profiles_usage.sql'),
+  checkFile('supabase/migrations/20260619000100_profiles_is_pro.sql'),
   ...checkRemoteSecrets(supabaseCli.ok),
 ]
 
