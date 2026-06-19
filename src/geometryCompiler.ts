@@ -1,21 +1,4 @@
-export type SemanticConstruction = {
-  objects: GeometryObject[]
-}
-
-type LineReference = [string, string] | string
-
-export type GeometryObject =
-  | { type: 'point'; name: string; x: number; y: number }
-  | { type: 'polygon'; name?: string; points: string[] }
-  | { type: 'segment'; name?: string; from: string; to: string }
-  | { type: 'line'; name?: string; through: [string, string] }
-  | { type: 'altitudeFoot'; name: string; from: string; to: LineReference }
-  | { type: 'midpoint'; name: string; of: [string, string] }
-  | { type: 'orthocenter'; name: string; triangle: [string, string, string] }
-  | { type: 'circleWithDiameter'; name: string; endpoints: [string, string] }
-  | { type: 'lineIntersection'; name: string; line1: LineReference; line2: LineReference }
-  | { type: 'lineCircleIntersection'; name: string; line: LineReference; circle: string; index: 1 | 2 }
-  | { type: 'reflectAcrossLine'; name: string; point: string; line: LineReference }
+import type { GeometryObject, LineReference, SemanticConstruction } from './semanticConstruction'
 
 type CompilerState = {
   commands: string[]
@@ -23,6 +6,10 @@ type CompilerState = {
   points: Set<string>
   lines: Map<string, string>
   altitudeLines: Map<string, string>
+  parallelLines: Map<string, string>
+  perpendicularLines: Map<string, string>
+  perpendicularBisectors: Map<string, string>
+  angleBisectors: Map<string, string>
 }
 
 export function compileSemanticConstruction(construction: SemanticConstruction) {
@@ -32,6 +19,10 @@ export function compileSemanticConstruction(construction: SemanticConstruction) 
     points: new Set(),
     lines: new Map(),
     altitudeLines: new Map(),
+    parallelLines: new Map(),
+    perpendicularLines: new Map(),
+    perpendicularBisectors: new Map(),
+    angleBisectors: new Map(),
   }
 
   for (const object of construction.objects) {
@@ -47,6 +38,13 @@ function compileObject(object: GeometryObject, state: CompilerState) {
       addCommand(state, object.name, `(${formatNumber(object.x)}, ${formatNumber(object.y)})`)
       state.points.add(object.name)
       return
+
+    case 'pointOnLine': {
+      const line = ensureLineReference(state, object.line)
+      addCommand(state, object.name, `Point(${line})`)
+      state.points.add(object.name)
+      return
+    }
 
     case 'polygon': {
       const name = object.name ?? `p${object.points.join('')}`
@@ -70,16 +68,38 @@ function compileObject(object: GeometryObject, state: CompilerState) {
       ensureLine(state, object.through[0], object.through[1], object.name)
       return
 
+    case 'parallelLine':
+      ensureParallelLine(state, object.through, ensureLineReference(state, object.parallelTo), object.name)
+      return
+
+    case 'perpendicularLine':
+      ensurePerpendicularLine(state, object.through, ensureLineReference(state, object.to), object.name)
+      return
+
+    case 'perpendicularBisector':
+      ensurePerpendicularBisector(state, object.of[0], object.of[1], object.name)
+      return
+
+    case 'angleBisector':
+      ensureAngleBisector(state, object.angle[0], object.angle[1], object.angle[2], object.name)
+      return
+
+    case 'markedAngle':
+      addCommand(state, object.name, `Angle(${object.angle[0]}, ${object.angle[1]}, ${object.angle[2]})`)
+      return
+
     case 'altitudeFoot': {
       const support = ensureLineReference(state, object.to)
       const altitude = ensureAltitudeLine(state, object.from, object.name, support)
       addCommand(state, object.name, `Intersect(${altitude}, ${support})`)
+      state.points.add(object.name)
       ensureSegment(state, object.from, object.name)
       return
     }
 
     case 'midpoint':
       addCommand(state, object.name, `Midpoint(${object.of[0]}, ${object.of[1]})`)
+      state.points.add(object.name)
       return
 
     case 'orthocenter': {
@@ -89,6 +109,25 @@ function compileObject(object: GeometryObject, state: CompilerState) {
       const altitudeFromB = ensureAltitudeLine(state, b, null, sideAC)
       const altitudeFromC = ensureAltitudeLine(state, c, null, sideAB)
       addCommand(state, object.name, `Intersect(${altitudeFromB}, ${altitudeFromC})`)
+      state.points.add(object.name)
+      return
+    }
+
+    case 'circumcenter': {
+      const [a, b, c] = object.triangle
+      const bisectorAB = ensurePerpendicularBisector(state, a, b)
+      const bisectorAC = ensurePerpendicularBisector(state, a, c)
+      addCommand(state, object.name, `Intersect(${bisectorAB}, ${bisectorAC})`)
+      state.points.add(object.name)
+      return
+    }
+
+    case 'incenter': {
+      const [a, b, c] = object.triangle
+      const bisectorABC = ensureAngleBisector(state, a, b, c)
+      const bisectorBAC = ensureAngleBisector(state, b, a, c)
+      addCommand(state, object.name, `Intersect(${bisectorABC}, ${bisectorBAC})`)
+      state.points.add(object.name)
       return
     }
 
@@ -103,21 +142,101 @@ function compileObject(object: GeometryObject, state: CompilerState) {
       const line1 = ensureLineReference(state, object.line1)
       const line2 = ensureLineReference(state, object.line2)
       addCommand(state, object.name, `Intersect(${line1}, ${line2})`)
+      state.points.add(object.name)
       return
     }
 
     case 'lineCircleIntersection': {
       const line = ensureLineReference(state, object.line)
       addCommand(state, object.name, `Intersect(${line}, ${object.circle}, ${object.index})`)
+      state.points.add(object.name)
       return
     }
 
     case 'reflectAcrossLine': {
       const line = ensureLineReference(state, object.line)
       addCommand(state, object.name, `Reflect(${object.point}, ${line})`)
+      state.points.add(object.name)
       return
     }
   }
+}
+
+function ensureParallelLine(
+  state: CompilerState,
+  through: string,
+  line: string,
+  preferredName?: string,
+) {
+  const key = `${through}|${line}`
+  const existing = state.parallelLines.get(key)
+
+  if (existing) {
+    return existing
+  }
+
+  const name = preferredName ?? nextAuxName(state, `auxPar${through}${line}`)
+  addCommand(state, name, `ParallelLine(${through}, ${line})`)
+  state.parallelLines.set(key, name)
+  return name
+}
+
+function ensurePerpendicularLine(
+  state: CompilerState,
+  through: string,
+  line: string,
+  preferredName?: string,
+) {
+  const key = `${through}|${line}`
+  const existing = state.perpendicularLines.get(key)
+
+  if (existing) {
+    return existing
+  }
+
+  const name = preferredName ?? nextAuxName(state, `auxPerp${through}${line}`)
+  addCommand(state, name, `PerpendicularLine(${through}, ${line})`)
+  state.perpendicularLines.set(key, name)
+  return name
+}
+
+function ensurePerpendicularBisector(
+  state: CompilerState,
+  from: string,
+  to: string,
+  preferredName?: string,
+) {
+  const key = pairKey(from, to)
+  const existing = state.perpendicularBisectors.get(key)
+
+  if (existing) {
+    return existing
+  }
+
+  const name = preferredName ?? nextAuxName(state, `auxPerpBis${from}${to}`)
+  addCommand(state, name, `PerpendicularBisector(${from}, ${to})`)
+  state.perpendicularBisectors.set(key, name)
+  return name
+}
+
+function ensureAngleBisector(
+  state: CompilerState,
+  first: string,
+  vertex: string,
+  third: string,
+  preferredName?: string,
+) {
+  const key = `${first}|${vertex}|${third}`
+  const existing = state.angleBisectors.get(key)
+
+  if (existing) {
+    return existing
+  }
+
+  const name = preferredName ?? nextAuxName(state, `auxBis${first}${vertex}${third}`)
+  addCommand(state, name, `AngleBisector(${first}, ${vertex}, ${third})`)
+  state.angleBisectors.set(key, name)
+  return name
 }
 
 function ensureSegment(state: CompilerState, from: string, to: string, preferredName?: string) {

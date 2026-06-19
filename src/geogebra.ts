@@ -1050,7 +1050,7 @@ function safeGetObjectNames(api: GeoGebraApi, objectType?: string) {
   }
 }
 
-export function hideAuxiliaryObjects(api: GeoGebraApi | null) {
+function hideAuxiliaryObjects(api: GeoGebraApi | null) {
   if (!api || typeof api.getAllObjectNames !== 'function') {
     return
   }

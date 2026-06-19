@@ -11,12 +11,20 @@ OUTPUT
 
 SUPPORTED OBJECT TYPES
 - point: type, name, x, y.
+- pointOnLine: type, name, line.
 - polygon: type, optional name, points.
 - segment: type, optional name, from, to.
 - line: type, optional name, through.
+- parallelLine: type, name, through, parallelTo.
+- perpendicularLine: type, name, through, to.
+- perpendicularBisector: type, name, of.
+- angleBisector: type, name, angle.
+- markedAngle: type, name, angle.
 - altitudeFoot: type, name, from, to.
 - midpoint: type, name, of.
 - orthocenter: type, name, triangle.
+- circumcenter: type, name, triangle.
+- incenter: type, name, triangle.
 - circleWithDiameter: type, name, endpoints.
 - lineIntersection: type, name, line1, line2.
 - lineCircleIntersection: type, name, line, circle, index.
@@ -29,10 +37,12 @@ FIELD RULES
 - Use only the supported object types and fields.
 - Every referenced object must be defined earlier or be created by the compiler from earlier points.
 - A point pair field must contain exactly two point names.
+- An angle field must contain exactly three point names: side point, vertex, side point.
 - A line reference field may be either a point pair or the name of an earlier line object.
 - If a line object has not been explicitly created earlier, use a point pair rather than a line name.
 - A triangle field must contain exactly three point names.
 - lineCircleIntersection index must be 1 or 2.
+- Define all points, lines, circles, and helper objects before another object references them.
 
 GEOMETRY RULES
 - For a generic default triangle ABC, use A = (1, 2), B = (0, 0), and C = (3, 0).
@@ -45,6 +55,14 @@ GEOMETRY RULES
 - For the intersection of two lines, use lineIntersection.
 - For the intersection of a line and a circle, use lineCircleIntersection.
 - For a midpoint of a side, use midpoint with the two endpoint points.
+- For a line through a point parallel to a line, use parallelLine.
+- For a line through a point perpendicular to a line, use perpendicularLine.
+- For a perpendicular bisector, use perpendicularBisector.
+- For an angle bisector, use angleBisector with the vertex as the middle point.
+- For a circumcenter, use circumcenter.
+- For an incenter, use incenter.
+- For a point constrained to an existing line, use pointOnLine.
+- For an angle that should be visible or measured, use markedAngle.
 - Add segment objects for visible connections mentioned or needed in the diagram.
 - If a named point lies on a relevant visible support line, include a segment that shows the relevant portion containing that point.
 
@@ -54,5 +72,6 @@ FINAL CHECK
 - No markdown, comments, explanations, or GeoGebra command strings.
 - Every object has a supported type.
 - Every referenced name is defined earlier or is a point pair that the compiler can turn into a line.
+- Every line reference is an earlier line name or a pair of earlier points.
 - Important named points and visible relations from the problem are represented.
 `

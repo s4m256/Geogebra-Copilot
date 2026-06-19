@@ -5,12 +5,12 @@ export type Point2D = {
 
 export type CoordMap = Record<string, Point2D>
 
-export type SegmentMergeAction = {
+type SegmentMergeAction = {
   createCommand: string | null
   hideNames: string[]
 }
 
-export type SegmentMergePlan = {
+type SegmentMergePlan = {
   actions: SegmentMergeAction[]
   warnings: string[]
 }
