@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent } from 'react'
+import type {
+  CSSProperties,
+  FormEvent,
+  KeyboardEvent as ReactKeyboardEvent,
+  PointerEvent as ReactPointerEvent,
+} from 'react'
 import { requestConstruction, type ConstructionResponse, type CopilotMode } from './ai'
 import {
   clearGeoGebraConstruction,
@@ -275,6 +280,15 @@ function App() {
     void submitPrompt(input)
   }
 
+  const handlePromptKeyDown = (event: ReactKeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.altKey || event.metaKey) {
+      return
+    }
+
+    event.preventDefault()
+    void submitPrompt(input)
+  }
+
   const handleLogin = async () => {
     const email = authEmail.trim()
 
@@ -314,7 +328,12 @@ function App() {
   }
 
   const handleUpgrade = async () => {
-    if (!authSession || isAccountBusy) {
+    if (isAccountBusy) {
+      return
+    }
+
+    if (!authSession) {
+      setStatusText('Entre com seu email para assinar o Pro.')
       return
     }
 
@@ -597,7 +616,7 @@ function App() {
                   <button
                     type="button"
                     onClick={handleUpgrade}
-                    disabled={!authSession || isAccountBusy || !isCheckoutConfigured()}
+                    disabled={isAccountBusy || !isCheckoutConfigured()}
                   >
                     Assinar Pro
                   </button>
@@ -634,7 +653,8 @@ function App() {
           <textarea
             value={input}
             onChange={(event) => setInput(event.target.value)}
-            placeholder="Descreva a construcao ou o problema..."
+            onKeyDown={handlePromptKeyDown}
+            placeholder={mode === 'draw' ? 'Descreva a construcao...' : 'Digite o problema para resolver...'}
             rows={3}
             disabled={isSubmitting}
           />
