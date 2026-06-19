@@ -5,6 +5,16 @@ import type {
   KeyboardEvent as ReactKeyboardEvent,
   PointerEvent as ReactPointerEvent,
 } from 'react'
+import {
+  ArrowUp,
+  ChevronDown,
+  ChevronUp,
+  CreditCard,
+  LogIn,
+  LogOut,
+  Sparkles,
+  SquarePen,
+} from 'lucide-react'
 import { requestConstruction, type ConstructionResponse, type CopilotMode } from './ai'
 import {
   createGeoGebraApplet,
@@ -46,13 +56,11 @@ type ChatThread = {
 const EXAMPLE_PROMPTS: Record<CopilotMode, string[]> = {
   draw: [
     'Desenhe um triangulo ABC e marque o ortocentro.',
-    'Crie um circulo com diametro AB.',
     'Desenhe a mediatriz de AB e uma reta paralela a BC passando por A.',
   ],
   solve: [
     'Resolva: em um triangulo ABC, mostre por que as alturas se encontram no ortocentro.',
     'Explique como construir o circuncentro de um triangulo e por que ele funciona.',
-    'Resolva um problema com bissetriz interna e incentro, gerando a construcao se ajudar.',
   ],
 }
 
@@ -463,7 +471,7 @@ function App() {
               aria-label="Novo chat"
               title="Novo chat"
             >
-              <span className="newChatIcon" aria-hidden="true" />
+              <SquarePen size={17} strokeWidth={2} aria-hidden="true" />
             </button>
             <button
               type="button"
@@ -473,23 +481,29 @@ function App() {
               aria-label={isChatExpanded ? 'Ocultar chat' : 'Mostrar chat'}
               title={isChatExpanded ? 'Ocultar chat' : 'Mostrar chat'}
             >
-              {isChatExpanded ? 'v' : '^'}
+              {isChatExpanded ? (
+                <ChevronDown size={17} strokeWidth={2} aria-hidden="true" />
+              ) : (
+                <ChevronUp size={17} strokeWidth={2} aria-hidden="true" />
+              )}
             </button>
           </div>
         </header>
-        <section className="chatThreads" aria-label="Chats">
-          {chatThreads.map((thread) => (
-            <button
-              key={thread.id}
-              type="button"
-              className={thread.id === currentChatId ? 'chatThread active' : 'chatThread'}
-              onClick={() => setActiveChatId(thread.id)}
-              title={thread.title}
-            >
-              {thread.title}
-            </button>
-          ))}
-        </section>
+        {chatThreads.length > 1 ? (
+          <section className="chatThreads" aria-label="Chats">
+            {chatThreads.map((thread) => (
+              <button
+                key={thread.id}
+                type="button"
+                className={thread.id === currentChatId ? 'chatThread active' : 'chatThread'}
+                onClick={() => setActiveChatId(thread.id)}
+                title={thread.title}
+              >
+                {thread.title}
+              </button>
+            ))}
+          </section>
+        ) : null}
         <section className="modeSwitch" aria-label="Modo do Copilot">
           <button
             type="button"
@@ -523,7 +537,7 @@ function App() {
                   aria-label="Gerenciar assinatura"
                   title="Gerenciar assinatura"
                 >
-                  $
+                  <CreditCard size={15} strokeWidth={2} aria-hidden="true" />
                 </button>
               ) : (
                 <button
@@ -533,7 +547,7 @@ function App() {
                   aria-label="Assinar Pro"
                   title="Assinar Pro"
                 >
-                  *
+                  <Sparkles size={15} strokeWidth={2} aria-hidden="true" />
                 </button>
               )}
               <button
@@ -543,7 +557,7 @@ function App() {
                 aria-label="Sair"
                 title="Sair"
               >
-                x
+                <LogOut size={15} strokeWidth={2} aria-hidden="true" />
               </button>
             </>
           ) : (
@@ -565,7 +579,11 @@ function App() {
                     aria-label="Entrar"
                     title="Entrar"
                   >
-                    {isAccountBusy ? '...' : '>'}
+                    {isAccountBusy ? (
+                      <span className="buttonPending" />
+                    ) : (
+                      <LogIn size={15} strokeWidth={2} aria-hidden="true" />
+                    )}
                   </button>
                 </>
               ) : (
@@ -578,20 +596,6 @@ function App() {
           {messages.length === 0 ? (
             <div className="emptyState">
               <strong>{mode === 'draw' ? 'Comece com um pedido de geometria' : 'Resolva com a IA Pro'}</strong>
-              {mode === 'solve' && !isProPlan(plan) ? (
-                <div className="proCallout">
-                  <span>Resolver usa a IA mais forte para explicar passos e criar a construcao quando ajudar.</span>
-                  <button
-                    type="button"
-                    onClick={handleUpgrade}
-                    disabled={isAccountBusy || !isCheckoutConfigured()}
-                    aria-label="Assinar Pro"
-                    title="Assinar Pro"
-                  >
-                    *
-                  </button>
-                </div>
-              ) : null}
               <div className="examplePrompts">
                 {EXAMPLE_PROMPTS[mode].map((example) => (
                   <button
@@ -631,7 +635,7 @@ function App() {
             title="Enviar"
             disabled={isSubmitting || input.trim().length === 0}
           >
-            {isSubmitting ? <span className="sendPending" /> : <span className="sendIcon" />}
+            {isSubmitting ? <span className="sendPending" /> : <ArrowUp size={17} strokeWidth={2.3} aria-hidden="true" />}
           </button>
         </form>
       </aside>
