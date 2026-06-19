@@ -235,15 +235,7 @@ function App() {
       activeElement.blur()
     }
 
-    const host = geogebraHostRef.current
-    const frame = host?.querySelector('iframe')
-
-    if (frame instanceof HTMLIFrameElement) {
-      frame.focus()
-      return
-    }
-
-    host?.focus()
+    window.getSelection()?.removeAllRanges()
   }, [])
 
   const submitPrompt = async (prompt: string) => {
@@ -515,7 +507,6 @@ function App() {
         className="geogebraPane"
         aria-label="GeoGebra Geometry"
         onPointerDown={focusGeoGebraFromPointer}
-        onPointerEnter={focusGeoGebraFromPointer}
       >
         <div ref={geogebraHostRef} className="geogebraHost" tabIndex={-1} />
         {!isGeoGebraReady && statusText ? (
