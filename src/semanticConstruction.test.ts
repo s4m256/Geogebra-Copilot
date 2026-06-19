@@ -29,6 +29,19 @@ describe('semantic construction schema', () => {
     expect(parsed.ok).toBe(false)
     expect(parsed.ok ? '' : parsed.message).toContain('B')
   })
+
+  it('rejects line references that are neither defined lines nor point pairs', () => {
+    const parsed = parseSemanticConstruction({
+      objects: [
+        { type: 'point', name: 'A', x: 0, y: 0 },
+        { type: 'point', name: 'B', x: 2, y: 0 },
+        { type: 'pointOnLine', name: 'P', line: 'r' },
+      ],
+    })
+
+    expect(parsed.ok).toBe(false)
+    expect(parsed.ok ? '' : parsed.message).toContain('r')
+  })
 })
 
 describe('geometry compiler regressions', () => {
@@ -70,6 +83,54 @@ describe('geometry compiler regressions', () => {
       'O = Intersect(auxPerpBisAB, m)',
       'I = Intersect(u, auxBisBAC)',
     ]))
+  })
+
+  it('compiles circle diameter, line-circle intersection, reflection, and point-on-line', () => {
+    const commands = compileSemanticConstruction({
+      objects: [
+        { type: 'point', name: 'A', x: -2, y: 0 },
+        { type: 'point', name: 'B', x: 2, y: 0 },
+        { type: 'point', name: 'C', x: 0, y: 3 },
+        { type: 'circleWithDiameter', name: 'c', endpoints: ['A', 'B'] },
+        { type: 'line', name: 'l', through: ['A', 'C'] },
+        { type: 'lineCircleIntersection', name: 'D', line: 'l', circle: 'c', index: 1 },
+        { type: 'reflectAcrossLine', name: 'E', point: 'C', line: ['A', 'B'] },
+        { type: 'pointOnLine', name: 'P', line: 'l' },
+      ],
+    })
+
+    expect(commands).toEqual(expect.arrayContaining([
+      'auxMidAB = Midpoint(A, B)',
+      'c = Circle(auxMidAB, A)',
+      'l = Line(A, C)',
+      'D = Intersect(l, c, 1)',
+      'auxAB = Line(A, B)',
+      'E = Reflect(C, auxAB)',
+      'P = Point(l)',
+    ]))
+  })
+
+  it('keeps dependency order for midpoint, perpendicular, and line intersection constructions', () => {
+    const commands = compileSemanticConstruction({
+      objects: [
+        { type: 'point', name: 'A', x: 0, y: 0 },
+        { type: 'point', name: 'B', x: 4, y: 0 },
+        { type: 'point', name: 'C', x: 1, y: 3 },
+        { type: 'midpoint', name: 'M', of: ['A', 'B'] },
+        { type: 'perpendicularLine', name: 'h', through: 'C', to: ['A', 'B'] },
+        { type: 'lineIntersection', name: 'D', line1: 'h', line2: ['A', 'B'] },
+      ],
+    })
+
+    expect(commands).toEqual([
+      'A = (0, 0)',
+      'B = (4, 0)',
+      'C = (1, 3)',
+      'M = Midpoint(A, B)',
+      'auxAB = Line(A, B)',
+      'h = PerpendicularLine(C, auxAB)',
+      'D = Intersect(h, auxAB)',
+    ])
   })
 })
 
