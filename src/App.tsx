@@ -289,6 +289,15 @@ function App() {
     void submitPrompt(input)
   }
 
+  const handleAuthEmailKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
+    if (event.key !== 'Enter') {
+      return
+    }
+
+    event.preventDefault()
+    void handleLogin()
+  }
+
   const handleLogin = async () => {
     const email = authEmail.trim()
 
@@ -565,7 +574,7 @@ function App() {
                   onClick={handleBillingPortal}
                   disabled={isAccountBusy || !isCheckoutConfigured()}
                 >
-                  Gerenciar
+                  {isAccountBusy ? 'Abrindo...' : 'Gerenciar'}
                 </button>
               ) : (
                 <button
@@ -573,7 +582,7 @@ function App() {
                   onClick={handleUpgrade}
                   disabled={isAccountBusy || !isCheckoutConfigured()}
                 >
-                  Assinar Pro
+                  {isAccountBusy ? 'Abrindo...' : 'Assinar Pro'}
                 </button>
               )}
               <button type="button" onClick={handleSignOut} disabled={isAccountBusy}>
@@ -588,6 +597,7 @@ function App() {
                     type="email"
                     value={authEmail}
                     onChange={(event) => setAuthEmail(event.target.value)}
+                    onKeyDown={handleAuthEmailKeyDown}
                     placeholder="email"
                     disabled={isAccountBusy}
                   />
@@ -596,7 +606,7 @@ function App() {
                     onClick={handleLogin}
                     disabled={isAccountBusy || !authEmail.trim()}
                   >
-                    Entrar
+                    {isAccountBusy ? 'Enviando...' : 'Entrar'}
                   </button>
                 </>
               ) : (
