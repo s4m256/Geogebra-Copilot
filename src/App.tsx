@@ -13,7 +13,6 @@ import {
   CreditCard,
   LogIn,
   LogOut,
-  MessageSquare,
   Sparkles,
   SquarePen,
 } from 'lucide-react'
@@ -676,7 +675,6 @@ function App() {
                     onClick={() => handleOpenChat(thread.id)}
                     title={thread.title}
                   >
-                    <MessageSquare size={15} strokeWidth={2} aria-hidden="true" />
                     <span>{thread.titleStatus === 'pending' ? 'Gerando titulo...' : thread.title}</span>
                   </button>
                 ))}
