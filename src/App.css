@@ -324,6 +324,39 @@
   font-weight: 600;
 }
 
+.proCallout {
+  display: grid;
+  gap: 8px;
+  border: 1px solid #363044;
+  border-radius: 8px;
+  background: #211f28;
+  padding: 9px 10px;
+  color: #c9c4d8;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.proCallout button {
+  justify-self: start;
+  height: 28px;
+  border: 1px solid var(--ggb-primary-color);
+  border-radius: 7px;
+  background: var(--ggb-primary-color);
+  color: #ffffff;
+  padding: 0 10px;
+  font: 12px/1 var(--sans);
+  cursor: pointer;
+}
+
+.proCallout button:hover:not(:disabled) {
+  background: var(--ggb-dark-color);
+}
+
+.proCallout button:disabled {
+  cursor: default;
+  opacity: 0.45;
+}
+
 .examplePrompts {
   display: grid;
   gap: 7px;

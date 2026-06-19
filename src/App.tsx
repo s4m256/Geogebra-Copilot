@@ -221,7 +221,7 @@ function App() {
     }
 
     if (mode === 'solve' && plan !== 'pro') {
-      setStatusText('O modo Resolver faz parte do plano Pro.')
+      setStatusText('Resolver e um recurso Pro. Assine para liberar a IA de resolucao.')
       return
     }
 
@@ -590,7 +590,19 @@ function App() {
         <div className="conversation">
           {messages.length === 0 ? (
             <div className="emptyState">
-              <strong>Comece com um pedido de geometria</strong>
+              <strong>{mode === 'draw' ? 'Comece com um pedido de geometria' : 'Resolva com a IA Pro'}</strong>
+              {mode === 'solve' && plan !== 'pro' ? (
+                <div className="proCallout">
+                  <span>Resolver usa a IA mais forte para explicar passos e criar a construcao quando ajudar.</span>
+                  <button
+                    type="button"
+                    onClick={handleUpgrade}
+                    disabled={!authSession || isAccountBusy || !isCheckoutConfigured()}
+                  >
+                    Assinar Pro
+                  </button>
+                </div>
+              ) : null}
               <div className="examplePrompts">
                 {EXAMPLE_PROMPTS[mode].map((example) => (
                   <button
