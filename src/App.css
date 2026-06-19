@@ -198,6 +198,7 @@
 .accountStrip {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
   min-width: 0;
   padding: 7px 10px;
@@ -247,7 +248,7 @@
 .accountIdentity {
   display: grid;
   min-width: 0;
-  flex: 1;
+  flex: 1 1 130px;
   gap: 2px;
   color: var(--chat-muted);
   font-size: 11px;
@@ -660,5 +661,9 @@
 
   .debugToggle input {
     flex: 0 0 auto;
+  }
+
+  .accountStrip button {
+    flex: 1 1 auto;
   }
 }

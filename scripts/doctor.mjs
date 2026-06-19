@@ -37,6 +37,7 @@ for (const check of checks) {
 
 if (failed > 0) {
   console.log(`\n${failed} item(ns) precisam de configuracao antes do fluxo pago funcionar em producao.`)
+  printStripeWebhookHint(checks)
   process.exitCode = 1
 } else {
   console.log('\nTudo pronto para build local e deploy Supabase/Stripe.')
@@ -132,11 +133,35 @@ function checkRemoteSecrets(canRunSupabase) {
   })
 
   if (result.status !== 0) {
-    return required.map((name) => ({
-      label: `Supabase secret ${name}`,
+    return [
+      {
+        label: 'Supabase secrets list',
+        ok: false,
+        detail: 'nao foi possivel listar secrets remotos',
+      },
+      ...required.map((name) => ({
+        label: `Supabase secret ${name}`,
+        ok: false,
+        optional: true,
+        detail: 'nao verificado',
+      })),
+    ]
+  }
+
+  if (!result.stdout.trim()) {
+    return [
+      {
+        label: 'Supabase secrets list',
       ok: false,
-      detail: 'nao foi possivel listar secrets',
-    }))
+        detail: 'saida vazia',
+      },
+      ...required.map((name) => ({
+        label: `Supabase secret ${name}`,
+        ok: false,
+        optional: true,
+        detail: 'nao verificado',
+      })),
+    ]
   }
 
   let names = new Set()
@@ -145,15 +170,44 @@ function checkRemoteSecrets(canRunSupabase) {
     const parsed = JSON.parse(result.stdout)
     names = new Set((parsed.secrets ?? []).map((secret) => secret.name))
   } catch {
-    return required.map((name) => ({
-      label: `Supabase secret ${name}`,
-      ok: false,
-      detail: 'saida inesperada de secrets list',
-    }))
+    return [
+      {
+        label: 'Supabase secrets list',
+        ok: false,
+        detail: 'saida inesperada',
+      },
+      ...required.map((name) => ({
+        label: `Supabase secret ${name}`,
+        ok: false,
+        optional: true,
+        detail: 'nao verificado',
+      })),
+    ]
   }
 
   return required.map((name) => ({
     label: `Supabase secret ${name}`,
     ok: names.has(name),
   }))
+}
+
+function printStripeWebhookHint(results) {
+  const missingWebhookSecret = results.some(
+    (check) => check.label === 'Supabase secret STRIPE_WEBHOOK_SECRET' && !check.ok,
+  )
+
+  if (!missingWebhookSecret) {
+    return
+  }
+
+  const projectUrl = env.get('VITE_SUPABASE_URL')?.trim()
+  const endpoint = projectUrl
+    ? `${projectUrl.replace(/\/$/, '')}/functions/v1/stripe-webhook`
+    : 'https://your-project.supabase.co/functions/v1/stripe-webhook'
+
+  console.log('\nPara finalizar o Stripe:')
+  console.log(`1. Crie um webhook no Stripe apontando para: ${endpoint}`)
+  console.log('2. Eventos minimos: checkout.session.completed, customer.subscription.created, customer.subscription.updated, customer.subscription.deleted')
+  console.log('3. Copie o signing secret que comeca com whsec_ e rode:')
+  console.log('   npx.cmd supabase secrets set STRIPE_WEBHOOK_SECRET="whsec_..."')
 }

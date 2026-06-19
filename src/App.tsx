@@ -338,6 +338,25 @@ function App() {
     }
   }
 
+  const handleRefreshPlan = async () => {
+    if (!authSession || isAccountBusy) {
+      return
+    }
+
+    setIsAccountBusy(true)
+
+    try {
+      const nextPlan = await fetchPlan(authSession.accessToken, authSession.user.id)
+      setPlan(nextPlan)
+      setStatusText(nextPlan === 'pro' ? 'Plano Pro ativo.' : 'Plano Free ativo.')
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Erro ao atualizar plano.'
+      setStatusText(message)
+    } finally {
+      setIsAccountBusy(false)
+    }
+  }
+
   const handleClearConstruction = () => {
     if (!clearGeoGebraConstruction(geogebraApiRef.current)) {
       setStatusText('GeoGebra ainda nao esta pronto.')
@@ -497,6 +516,14 @@ function App() {
                 <span>{authSession.user.email ?? 'Conta'}</span>
                 <strong>{formatPlanLabel(plan, usageInfo)}</strong>
               </div>
+              <button
+                type="button"
+                onClick={handleRefreshPlan}
+                disabled={isAccountBusy}
+                title="Atualizar plano"
+              >
+                Atualizar
+              </button>
               {plan === 'pro' ? (
                 <button
                   type="button"
