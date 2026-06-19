@@ -89,13 +89,6 @@ export async function handleCopilotRequest(request: Request) {
     return jsonResponse({ error: 'O modo Resolver faz parte do plano Pro.' }, 402)
   }
 
-  const usageBeforeRequest = await readUsageToday(user.id)
-  const freeDailyLimit = readFreeDailyLimit()
-
-  if (plan === 'free' && usageBeforeRequest >= freeDailyLimit) {
-    return jsonResponse({ error: 'Free daily limit reached.' }, 429)
-  }
-
   const config = isProPlan(plan) ? readOpenAiConfig(plan) : readGroqConfig(plan)
   const messages: ChatMessage[] = [
     { role: 'system', content: buildSystemPrompt(plan, mode) },
@@ -155,16 +148,10 @@ export async function handleCopilotRequest(request: Request) {
   }
 
   await recordUsage(user.id, plan)
-  const usedToday = usageBeforeRequest + 1
 
   return jsonResponse({
     commands,
     explanation: parsed.explanation,
-    usage: {
-      usedToday,
-      freeDailyLimit: plan === 'free' ? freeDailyLimit : null,
-      remainingToday: plan === 'free' ? Math.max(freeDailyLimit - usedToday, 0) : null,
-    },
     debug: {
       provider: 'backend',
       repaired,
@@ -227,29 +214,6 @@ async function recordUsage(userId: string, plan: Plan) {
 
   const supabase = createSupabaseAdmin()
   await supabase.from('usage_events').insert({ user_id: userId, plan })
-}
-
-async function readUsageToday(userId: string) {
-  if (!Deno.env.get('SUPABASE_URL') || !Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')) {
-    return 0
-  }
-
-  const since = new Date()
-  since.setUTCHours(0, 0, 0, 0)
-
-  const supabase = createSupabaseAdmin()
-  const { count } = await supabase
-    .from('usage_events')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .gte('created_at', since.toISOString())
-
-  return count ?? 0
-}
-
-function readFreeDailyLimit() {
-  const value = Number(Deno.env.get('FREE_DAILY_LIMIT') ?? '50')
-  return Number.isFinite(value) && value > 0 ? value : 50
 }
 
 function createSupabaseAdmin() {

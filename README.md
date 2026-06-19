@@ -51,7 +51,7 @@ The checkout function appends `?checkout=success` or `?checkout=cancel` to the s
 
 - Free users use Draw mode backed by the lower-cost model.
 - Pro users can use Draw or Solve mode. Solve mode is backed by the stronger model and can return a text explanation with an optional construction.
-- The UI should stay focused: one prompt box, one GeoGebra workspace, and an optional debug toggle for generated commands.
+- The UI should stay focused: one prompt box, one GeoGebra workspace, and a clean chat history.
 - In production backend mode, users sign in with an email magic link before using Copilot. Free users see `Assinar Pro`, which opens Stripe Checkout.
 
 ## Architecture
@@ -80,7 +80,7 @@ The current Supabase function is the provider boundary:
 - `supabase/functions/create-billing-portal`: lets pro users manage or cancel billing in Stripe.
 - `supabase/functions/stripe-webhook`: updates the stored user plan from Stripe subscription events.
 
-The browser never receives provider keys. Supabase Auth, the `profiles` table (`plan`, `is_pro`, Stripe customer/subscription fields), usage events, free daily limits, and signed Stripe webhook data are the backend source of truth for plan routing.
+The browser never receives provider keys. Supabase Auth, the `profiles` table (`plan`, `is_pro`, Stripe customer/subscription fields), usage events, and signed Stripe webhook data are the backend source of truth for plan routing.
 
 Run `npm.cmd run doctor` before testing the paid flow. It reports missing local env vars and CLIs without printing secret values.
 

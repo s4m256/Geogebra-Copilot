@@ -7,6 +7,7 @@ import type {
 } from 'react'
 import {
   ArrowUp,
+  ArrowLeft,
   ChevronDown,
   ChevronUp,
   CreditCard,
@@ -19,7 +20,6 @@ import {
 import {
   requestChatTitle,
   requestConstruction,
-  type ConstructionResponse,
   type CopilotMode,
 } from './ai'
 import {
@@ -84,7 +84,6 @@ function App() {
   const [authEmail, setAuthEmail] = useState('')
   const [authSession, setAuthSession] = useState<AuthSession | null>(null)
   const [plan, setPlan] = useState<Plan>('free')
-  const [usageInfo, setUsageInfo] = useState<ConstructionResponse['usage']>(undefined)
   const [isAccountBusy, setIsAccountBusy] = useState(false)
   const appShellRef = useRef<HTMLElement | null>(null)
   const geogebraHostRef = useRef<HTMLDivElement | null>(null)
@@ -93,6 +92,7 @@ function App() {
   const currentChatId = activeChatId ?? chatThreads[0]?.id ?? ''
   const activeChat = chatThreads.find((thread) => thread.id === currentChatId) ?? chatThreads[0]
   const messages = activeChat?.messages ?? []
+  const activeChatTitle = formatVisibleChatTitle(activeChat)
   const visibleChatThreads = [...chatThreads].sort((left, right) => right.updatedAt - left.updatedAt)
 
   useEffect(() => {
@@ -291,7 +291,6 @@ function App() {
         accessToken: authSession?.accessToken,
         mode,
       })
-      setUsageInfo(response.usage)
 
       if (response.commands.length === 0) {
         setStatusText('')
@@ -377,7 +376,6 @@ function App() {
       clearStoredSession()
       setAuthSession(null)
       setPlan('free')
-      setUsageInfo(undefined)
       setIsAccountBusy(false)
     }
   }
@@ -530,10 +528,25 @@ function App() {
 
       <aside className={`copilotPane ${isChatExpanded ? '' : 'copilotPaneCollapsed'}`} aria-label="Copilot">
         <header className="copilotHeader">
-          <div className="copilotBrand">
-            <img src="/ggb_copilot_logo.png" alt="" className="copilotLogo" />
-            <span>Copilot</span>
-          </div>
+          {isChatListOpen ? (
+            <div className="copilotBrand">
+              <img src="/ggb_copilot_logo.png" alt="" className="copilotLogo" />
+              <span>Copilot</span>
+            </div>
+          ) : (
+            <div className="chatTitleBar">
+              <button
+                type="button"
+                className="iconButton backButton"
+                onClick={() => setIsChatListOpen(true)}
+                aria-label="Voltar para chats"
+                title="Voltar para chats"
+              >
+                <ArrowLeft size={17} strokeWidth={2} aria-hidden="true" />
+              </button>
+              <span className="chatTitleText" title={activeChatTitle}>{activeChatTitle}</span>
+            </div>
+          )}
           <div className="copilotActions" aria-label="Acoes">
             <button
               type="button"
@@ -583,7 +596,7 @@ function App() {
             <>
               <div className="accountIdentity">
                 <span>{authSession.user.email ?? 'Conta'}</span>
-                <strong>{formatPlanLabel(plan, usageInfo)}</strong>
+                <strong>{formatPlanLabel(plan)}</strong>
               </div>
               {isProPlan(plan) ? (
                 <button
@@ -894,20 +907,24 @@ function formatChatTitle(prompt: string) {
   return prompt.length > 34 ? `${prompt.slice(0, 34).trim()}...` : prompt
 }
 
-function formatPlanLabel(plan: Plan, usage: ConstructionResponse['usage']) {
-  if (isProPlan(plan)) {
-    return 'Pro'
+function formatVisibleChatTitle(thread: ChatThread | undefined) {
+  if (!thread) {
+    return 'Novo chat'
   }
 
-  if (typeof usage?.remainingToday === 'number') {
-    return `Free - ${usage.remainingToday} restantes`
+  return thread.titleStatus === 'pending' ? 'Gerando titulo...' : thread.title
+}
+
+function formatPlanLabel(plan: Plan) {
+  if (isProPlan(plan)) {
+    return 'Pro'
   }
 
   return 'Free'
 }
 
 function formatCopilotResponse(
-  response: ConstructionResponse,
+  response: Awaited<ReturnType<typeof requestConstruction>>,
   parsed: NormalizeResult | null,
 ) {
   const sections: string[] = []

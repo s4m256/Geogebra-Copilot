@@ -156,6 +156,29 @@
   gap: 8px;
 }
 
+.chatTitleBar {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 8px;
+}
+
+.backButton {
+  flex: 0 0 auto;
+  border-color: transparent;
+  background: transparent;
+}
+
+.chatTitleText {
+  min-width: 0;
+  overflow: hidden;
+  color: #e8e8e8;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+}
+
 .copilotLogo {
   width: 22px;
   height: 22px;
@@ -648,6 +671,10 @@
 
   .copilotBrand span {
     display: none;
+  }
+
+  .chatTitleText {
+    max-width: 52vw;
   }
 
   .copilotActions {
