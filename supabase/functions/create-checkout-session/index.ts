@@ -28,8 +28,8 @@ serve(async (request) => {
       mode: 'subscription',
       'line_items[0][price]': mustReadEnv('STRIPE_PRO_PRICE_ID'),
       'line_items[0][quantity]': '1',
-      success_url: mustReadEnv('STRIPE_SUCCESS_URL'),
-      cancel_url: mustReadEnv('STRIPE_CANCEL_URL'),
+      success_url: appendCheckoutStatus(mustReadEnv('STRIPE_SUCCESS_URL'), 'success'),
+      cancel_url: appendCheckoutStatus(mustReadEnv('STRIPE_CANCEL_URL'), 'cancel'),
       client_reference_id: user.id,
       'metadata[supabase_user_id]': user.id,
       'subscription_data[metadata][supabase_user_id]': user.id,
@@ -109,4 +109,15 @@ function mustReadEnv(name: string) {
   }
 
   return value
+}
+
+function appendCheckoutStatus(rawUrl: string, status: 'success' | 'cancel') {
+  try {
+    const url = new URL(rawUrl)
+    url.searchParams.set('checkout', status)
+    return url.toString()
+  } catch {
+    const separator = rawUrl.includes('?') ? '&' : '?'
+    return `${rawUrl}${separator}checkout=${status}`
+  }
 }

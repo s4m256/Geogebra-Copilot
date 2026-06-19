@@ -44,6 +44,8 @@ supabase secrets set STRIPE_CANCEL_URL=http://localhost:5173
 supabase secrets set STRIPE_PORTAL_RETURN_URL=http://localhost:5173
 ```
 
+The checkout function appends `?checkout=success` or `?checkout=cancel` to the success and cancel URLs, so these secrets can be the base app URL.
+
 ## Plans
 
 - Free users use Draw mode backed by the lower-cost model.

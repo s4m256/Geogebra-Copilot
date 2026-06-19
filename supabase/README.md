@@ -17,6 +17,8 @@ supabase secrets set STRIPE_CANCEL_URL=https://your-app/cancel
 supabase secrets set STRIPE_PORTAL_RETURN_URL=https://your-app/account
 ```
 
+`STRIPE_SUCCESS_URL` and `STRIPE_CANCEL_URL` can point to the app root. The checkout function adds `checkout=success` or `checkout=cancel` before sending the user back.
+
 Optional usage limit:
 
 ```bash

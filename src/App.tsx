@@ -126,17 +126,47 @@ function App() {
 
     async function loadSession() {
       try {
+        const checkoutStatus = readCheckoutStatus()
         const sessionFromUrl = await readSessionFromUrl()
         const storedSession = sessionFromUrl ?? readStoredSession()
         const session = storedSession ? await refreshSession(storedSession) : null
 
+        if (checkoutStatus === 'cancel' && !ignore) {
+          setStatusText('Assinatura cancelada antes do pagamento.')
+          clearCheckoutStatus()
+        }
+
         if (!session || ignore) {
+          if (!session && checkoutStatus === 'success' && !ignore) {
+            setStatusText('Pagamento recebido. Entre novamente para atualizar seu plano.')
+            clearCheckoutStatus()
+          }
           return
         }
 
         setAuthSession(session)
         setAuthEmail(session.user.email ?? '')
-        setPlan(await fetchPlan(session.accessToken, session.user.id))
+        const nextPlan = await refreshPlanAfterCheckout(
+          session.accessToken,
+          session.user.id,
+          checkoutStatus,
+          () => ignore,
+        )
+
+        if (ignore) {
+          return
+        }
+
+        setPlan(nextPlan)
+
+        if (checkoutStatus === 'success') {
+          setStatusText(
+            nextPlan === 'pro'
+              ? 'Plano Pro ativado.'
+              : 'Pagamento recebido. Estamos aguardando a confirmacao do Stripe.',
+          )
+          clearCheckoutStatus()
+        }
       } catch (error) {
         clearStoredSession()
         if (!ignore) {
@@ -568,6 +598,52 @@ function App() {
 
 function hasGeoGebraDebug(result: CommandExecutionResult) {
   return result.failed.length > 0 || result.warnings.length > 0
+}
+
+async function refreshPlanAfterCheckout(
+  accessToken: string,
+  userId: string,
+  checkoutStatus: CheckoutStatus,
+  shouldStop: () => boolean,
+) {
+  let nextPlan = await fetchPlan(accessToken, userId)
+
+  if (checkoutStatus !== 'success' || nextPlan === 'pro') {
+    return nextPlan
+  }
+
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await delay(1500)
+
+    if (shouldStop()) {
+      return nextPlan
+    }
+
+    nextPlan = await fetchPlan(accessToken, userId)
+
+    if (nextPlan === 'pro') {
+      return nextPlan
+    }
+  }
+
+  return nextPlan
+}
+
+type CheckoutStatus = 'success' | 'cancel' | null
+
+function readCheckoutStatus(): CheckoutStatus {
+  const value = new URLSearchParams(window.location.search).get('checkout')
+  return value === 'success' || value === 'cancel' ? value : null
+}
+
+function clearCheckoutStatus() {
+  const url = new URL(window.location.href)
+  url.searchParams.delete('checkout')
+  window.history.replaceState(null, document.title, url.pathname + url.search + url.hash)
+}
+
+function delay(milliseconds: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, milliseconds))
 }
 
 function formatPlanLabel(plan: Plan, usage: ConstructionResponse['usage']) {
