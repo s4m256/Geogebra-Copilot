@@ -19,6 +19,7 @@
   min-height: 0;
   overflow: hidden;
   background: #ffffff;
+  user-select: none;
 }
 
 .geogebraPane {
@@ -28,6 +29,9 @@
   min-height: 0;
   overflow: hidden;
   background: #ffffff;
+  outline: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .geogebraHost {
@@ -37,6 +41,8 @@
   min-width: 0;
   min-height: 0;
   outline: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .geogebraHost > *,
@@ -48,8 +54,19 @@
   max-height: 100%;
 }
 
+.geogebraPane:focus,
+.geogebraPane:focus-visible,
+.geogebraHost:focus,
+.geogebraHost:focus-visible,
+.geogebraHost *:focus,
+.geogebraHost *:focus-visible {
+  outline: none !important;
+}
+
 .geogebraHost iframe {
   display: block;
+  border: 0;
+  outline: none;
 }
 
 .geoStatus {
@@ -252,6 +269,7 @@
   color: var(--chat-text);
   padding: 0 8px;
   font: 12px/1 var(--sans);
+  user-select: text;
 }
 
 .accountStrip input:focus {
@@ -421,6 +439,7 @@
   white-space: pre-wrap;
   color: var(--chat-text);
   font: 12px/1.48 var(--mono);
+  user-select: text;
 }
 
 .message-user {
@@ -490,6 +509,7 @@
   caret-color: var(--ggb-primary-color);
   padding: 10px 45px 10px 11px;
   font: 13px/1.42 var(--sans);
+  user-select: text;
   transition:
     border-color 120ms ease,
     box-shadow 120ms ease,
