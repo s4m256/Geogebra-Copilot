@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "doctor": "node scripts/doctor.mjs",
+    "verify": "npm run test && npm run build && npm run lint",
     "preview": "vite preview"
   },
   "dependencies": {

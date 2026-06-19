@@ -18,6 +18,7 @@ npm.cmd run dev
 npm.cmd run build
 npm.cmd run lint
 npm.cmd run test
+npm.cmd run verify
 npm.cmd run doctor
 ```
 
@@ -82,3 +83,5 @@ The current Supabase function is the provider boundary:
 The browser never receives provider keys. Supabase Auth, the `profiles` table, usage events, free daily limits, and signed Stripe webhook data are the backend source of truth for plan routing.
 
 Run `npm.cmd run doctor` before testing the paid flow. It reports missing local env vars and CLIs without printing secret values.
+
+Use [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) before shipping a Vercel/Supabase/Stripe release.

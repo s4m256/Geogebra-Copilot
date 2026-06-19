@@ -152,7 +152,7 @@ function checkRemoteSecrets(canRunSupabase) {
     return [
       {
         label: 'Supabase secrets list',
-      ok: false,
+        ok: false,
         detail: 'saida vazia',
       },
       ...required.map((name) => ({
