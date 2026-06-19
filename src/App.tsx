@@ -53,17 +53,6 @@ type ChatThread = {
   messages: Message[]
 }
 
-const EXAMPLE_PROMPTS: Record<CopilotMode, string[]> = {
-  draw: [
-    'Desenhe um triangulo ABC e marque o ortocentro.',
-    'Desenhe a mediatriz de AB e uma reta paralela a BC passando por A.',
-  ],
-  solve: [
-    'Resolva: em um triangulo ABC, mostre por que as alturas se encontram no ortocentro.',
-    'Explique como construir o circuncentro de um triangulo e por que ele funciona.',
-  ],
-}
-
 const INITIAL_CHAT_THREAD = createChatThread()
 
 function App() {
@@ -593,22 +582,6 @@ function App() {
           )}
         </section>
         <div className="conversation">
-          {messages.length === 0 ? (
-            <div className="emptyState">
-              <strong>{mode === 'draw' ? 'Comece com um pedido de geometria' : 'Resolva com a IA Pro'}</strong>
-              <div className="examplePrompts">
-                {EXAMPLE_PROMPTS[mode].map((example) => (
-                  <button
-                    key={example}
-                    type="button"
-                    onClick={() => setInput(example)}
-                  >
-                    {example}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
           {messages.map((message) => (
             <article key={message.id} className={`message message-${message.from}`}>
               <strong>{message.from === 'user' ? 'Voce' : 'Copilot'}</strong>

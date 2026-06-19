@@ -78,8 +78,8 @@
 }
 
 .copilotPane {
-  display: grid;
-  grid-template-rows: auto auto auto auto minmax(0, 1fr) auto auto;
+  display: flex;
+  flex-direction: column;
   height: 100%;
   min-width: 0;
   min-height: 0;
@@ -330,6 +330,7 @@
 }
 
 .conversation {
+  flex: 1 1 auto;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
@@ -347,42 +348,6 @@
   border-radius: 999px;
   background: #3a3a3d;
   background-clip: padding-box;
-}
-
-.emptyState {
-  display: grid;
-  gap: 10px;
-  padding: 4px 0 12px;
-  color: var(--chat-muted);
-}
-
-.emptyState strong {
-  color: #e8e8e8;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.examplePrompts {
-  display: grid;
-  gap: 7px;
-}
-
-.examplePrompts button {
-  width: 100%;
-  border: 1px solid var(--chat-line-soft);
-  border-radius: 8px;
-  background: #1d1d20;
-  color: var(--chat-text);
-  padding: 9px 10px;
-  text-align: left;
-  font: 12px/1.35 var(--sans);
-  cursor: pointer;
-}
-
-.examplePrompts button:hover {
-  border-color: #454550;
-  background: #24242a;
-  color: #ffffff;
 }
 
 .message {
@@ -575,7 +540,7 @@
   }
 
   .copilotPaneCollapsed {
-    grid-template-rows: 52px 0 0 0 0 0 0;
+    min-height: 52px;
   }
 
   .copilotPaneCollapsed .chatThreads,
@@ -594,10 +559,6 @@
 }
 
 @media (max-width: 560px), (max-height: 560px) {
-  .copilotPane {
-    grid-template-rows: auto auto auto auto minmax(0, 1fr) auto auto;
-  }
-
   .copilotHeader {
     min-height: 42px;
     padding: 6px 10px;
