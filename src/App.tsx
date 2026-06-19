@@ -33,11 +33,18 @@ type Message = {
   text: string
 }
 
-const EXAMPLE_PROMPTS = [
-  'Desenhe um triangulo ABC e marque o ortocentro.',
-  'Crie um circulo com diametro AB.',
-  'Desenhe a mediatriz de AB e uma reta paralela a BC passando por A.',
-]
+const EXAMPLE_PROMPTS: Record<CopilotMode, string[]> = {
+  draw: [
+    'Desenhe um triangulo ABC e marque o ortocentro.',
+    'Crie um circulo com diametro AB.',
+    'Desenhe a mediatriz de AB e uma reta paralela a BC passando por A.',
+  ],
+  solve: [
+    'Resolva: em um triangulo ABC, mostre por que as alturas se encontram no ortocentro.',
+    'Explique como construir o circuncentro de um triangulo e por que ele funciona.',
+    'Resolva um problema com bissetriz interna e incentro, gerando a construcao se ajudar.',
+  ],
+}
 
 function App() {
   const [input, setInput] = useState('')
@@ -357,6 +364,15 @@ function App() {
     }
   }
 
+  const handleModeChange = (nextMode: CopilotMode) => {
+    if (nextMode === 'solve' && plan !== 'pro') {
+      setStatusText('Resolver e um recurso Pro. Assine para liberar a IA de resolucao.')
+      return
+    }
+
+    setMode(nextMode)
+  }
+
   const handleClearConstruction = () => {
     if (!clearGeoGebraConstruction(geogebraApiRef.current)) {
       setStatusText('GeoGebra ainda nao esta pronto.')
@@ -496,17 +512,18 @@ function App() {
           <button
             type="button"
             className={mode === 'draw' ? 'modeButton active' : 'modeButton'}
-            onClick={() => setMode('draw')}
+            onClick={() => handleModeChange('draw')}
           >
             Desenhar
           </button>
           <button
             type="button"
-            className={mode === 'solve' ? 'modeButton active' : 'modeButton'}
-            onClick={() => setMode('solve')}
+            className={mode === 'solve' ? 'modeButton active' : 'modeButton proModeButton'}
+            onClick={() => handleModeChange('solve')}
             title={plan === 'pro' ? 'Resolver problema' : 'Disponivel no Pro'}
           >
             Resolver
+            {plan !== 'pro' ? <span>Pro</span> : null}
           </button>
         </section>
         <section className="accountStrip" aria-label="Conta">
@@ -575,7 +592,7 @@ function App() {
             <div className="emptyState">
               <strong>Comece com um pedido de geometria</strong>
               <div className="examplePrompts">
-                {EXAMPLE_PROMPTS.map((example) => (
+                {EXAMPLE_PROMPTS[mode].map((example) => (
                   <button
                     key={example}
                     type="button"
