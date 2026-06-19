@@ -46,8 +46,8 @@ supabase secrets set STRIPE_PORTAL_RETURN_URL=http://localhost:5173
 
 ## Plans
 
-- Free users use the same Copilot interface backed by the lower-cost model.
-- Pro users use the same Copilot interface backed by a stronger model that can give better reasoning when the prompt asks for a solution.
+- Free users use Draw mode backed by the lower-cost model.
+- Pro users can use Draw or Solve mode. Solve mode is backed by the stronger model and can return a text explanation with an optional construction.
 - The UI should stay focused: one prompt box, one GeoGebra workspace, and an optional debug toggle for generated commands.
 - In production backend mode, users sign in with an email magic link before using Copilot. Free users see `Assinar Pro`, which opens Stripe Checkout.
 
@@ -72,6 +72,7 @@ The model must never return raw GeoGebra commands. It returns supported semantic
 The current Supabase function is the provider boundary:
 
 - `supabase/functions/ai`: single AI endpoint. It reads the authenticated user's plan and routes free users to Groq and pro users to OpenAI.
+- `mode: "draw" | "solve"` is sent in the request body. `solve` returns an explanation and optional commands, and is limited to Pro users.
 - `supabase/functions/create-checkout-session`: creates a Stripe Checkout subscription session for the authenticated user.
 - `supabase/functions/create-billing-portal`: lets pro users manage or cancel billing in Stripe.
 - `supabase/functions/stripe-webhook`: updates the stored user plan from Stripe subscription events.

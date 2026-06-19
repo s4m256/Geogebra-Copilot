@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 type Plan = 'free' | 'pro'
+type CopilotMode = 'draw' | 'solve'
 
 type ProviderConfig = {
   apiKey: string
@@ -69,7 +70,8 @@ export async function handleCopilotRequest(request: Request) {
     return jsonResponse({ error: 'Method not allowed.' }, 405)
   }
 
-  const { prompt } = await request.json().catch(() => ({ prompt: '' }))
+  const { prompt, mode: rawMode } = await request.json().catch(() => ({ prompt: '' }))
+  const mode: CopilotMode = rawMode === 'solve' ? 'solve' : 'draw'
 
   if (typeof prompt !== 'string' || prompt.trim().length === 0) {
     return jsonResponse({ error: 'Prompt is required.' }, 400)
@@ -83,16 +85,20 @@ export async function handleCopilotRequest(request: Request) {
 
   const plan = await readPlan(user?.id)
 
+  if (mode === 'solve' && plan !== 'pro') {
+    return jsonResponse({ error: 'O modo Resolver faz parte do plano Pro.' }, 402)
+  }
+
   if (plan === 'free' && (await readUsageToday(user.id)) >= readFreeDailyLimit()) {
     return jsonResponse({ error: 'Free daily limit reached.' }, 429)
   }
 
   const config = plan === 'pro' ? readOpenAiConfig(plan) : readGroqConfig(plan)
   const content = await requestChatCompletion(config, [
-    { role: 'system', content: buildSystemPrompt(plan) },
+    { role: 'system', content: buildSystemPrompt(plan, mode) },
     { role: 'user', content: prompt.trim() },
   ])
-  const parsed = parseModelContent(content)
+  const parsed = parseModelContent(content, mode)
 
   if (!parsed.ok) {
     return jsonResponse({ error: parsed.error }, 502)
@@ -101,13 +107,14 @@ export async function handleCopilotRequest(request: Request) {
   await recordUsage(user.id, plan)
 
   return jsonResponse({
-    commands: compileSemanticConstruction(parsed.construction),
+    commands: parsed.construction ? compileSemanticConstruction(parsed.construction) : [],
     explanation: parsed.explanation,
     debug: {
       provider: 'backend',
       repaired: false,
       model: config.model,
       plan,
+      mode,
     },
   })
 }
@@ -228,7 +235,7 @@ async function requestChatCompletion(config: ProviderConfig, messages: ChatMessa
   return content
 }
 
-function parseModelContent(content: string) {
+function parseModelContent(content: string, mode: CopilotMode) {
   let parsed: unknown
 
   try {
@@ -241,16 +248,28 @@ function parseModelContent(content: string) {
     return { ok: false as const, error: 'Model response was not an object.' }
   }
 
-  const object = parsed as { objects?: GeometryObject[]; construction?: SemanticConstruction; explanation?: unknown }
-  const construction = object.construction ?? { objects: object.objects }
+  const object = parsed as {
+    objects?: GeometryObject[]
+    construction?: SemanticConstruction | null
+    explanation?: unknown
+  }
+  const construction = object.construction ?? (object.objects ? { objects: object.objects } : null)
 
-  if (!construction || !Array.isArray(construction.objects)) {
+  if (construction && !Array.isArray(construction.objects)) {
     return { ok: false as const, error: 'Model response did not include objects.' }
+  }
+
+  if (!construction && mode === 'draw') {
+    return { ok: false as const, error: 'Model response did not include objects.' }
+  }
+
+  if (!construction && typeof object.explanation !== 'string') {
+    return { ok: false as const, error: 'Model response did not include explanation or construction.' }
   }
 
   return {
     ok: true as const,
-    construction: construction as SemanticConstruction,
+    construction: construction as SemanticConstruction | null,
     explanation: typeof object.explanation === 'string' ? object.explanation : null,
   }
 }
@@ -362,16 +381,33 @@ function addCommand(state: CompilerState, name: string, expression: string) {
   state.names.add(name)
 }
 
-function buildSystemPrompt(plan: Plan) {
-  return [
+function buildSystemPrompt(plan: Plan, mode: CopilotMode) {
+  const base = [
     'Return JSON only.',
     'Use semantic geometry objects, never raw GeoGebra command strings.',
-    'Return either { "objects": [...] } or { "explanation": "...", "construction": { "objects": [...] } }.',
     'Supported object types: point, pointOnLine, polygon, segment, line, parallelLine, perpendicularLine, perpendicularBisector, angleBisector, markedAngle, altitudeFoot, midpoint, orthocenter, circumcenter, incenter, circleWithDiameter, lineIntersection, lineCircleIntersection, reflectAcrossLine.',
     'Names must be ASCII identifiers and every referenced object must be defined earlier.',
-    plan === 'pro'
-      ? 'Use the stronger model to solve when the user asks for a solution, but still include construction objects when useful.'
-      : 'Focus on producing a reliable construction. Keep explanation null or omit it.',
+  ]
+
+  if (mode === 'solve') {
+    return [
+      ...base,
+      'The user selected Solve mode.',
+      'Return { "explanation": "...", "construction": { "objects": [...] } } when a diagram is useful.',
+      'If no diagram is useful, return { "explanation": "..." }.',
+      'Explain the reasoning in clear Portuguese with concise steps.',
+      'Do not include markdown fences or raw GeoGebra commands.',
+      plan === 'pro'
+        ? 'Use the stronger model for reasoning and keep the construction semantically valid when included.'
+        : 'This mode is unavailable for free users.',
+    ].join('\n')
+  }
+
+  return [
+    ...base,
+    'The user selected Draw mode.',
+    'Return either { "objects": [...] } or { "explanation": "...", "construction": { "objects": [...] } }.',
+    'Focus on producing a reliable construction. Keep explanation short or omit it.',
   ].join('\n')
 }
 

@@ -1,3 +1,5 @@
+export type CopilotMode = 'draw' | 'solve'
+
 export type ConstructionResponse = {
   commands: string[]
   explanation: string | null
@@ -6,6 +8,7 @@ export type ConstructionResponse = {
     repaired: boolean
     model: string
     plan?: 'free' | 'pro'
+    mode?: CopilotMode
   }
 }
 
@@ -13,12 +16,12 @@ const FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL
 
 export async function requestConstruction(
   input: string,
-  options: { accessToken?: string | null } = {},
+  options: { accessToken?: string | null; mode?: CopilotMode } = {},
 ): Promise<ConstructionResponse> {
   const prompt = input.trim()
 
   if (FUNCTIONS_URL) {
-    return requestBackendConstruction(prompt, options.accessToken ?? null)
+    return requestBackendConstruction(prompt, options.accessToken ?? null, options.mode ?? 'draw')
   }
 
   throw new Error('Configure VITE_SUPABASE_FUNCTIONS_URL to enable Copilot generation.')
@@ -27,6 +30,7 @@ export async function requestConstruction(
 async function requestBackendConstruction(
   prompt: string,
   accessToken: string | null,
+  mode: CopilotMode,
 ): Promise<ConstructionResponse> {
   const response = await fetch(`${FUNCTIONS_URL}/ai`, {
     method: 'POST',
@@ -34,7 +38,7 @@ async function requestBackendConstruction(
       'Content-Type': 'application/json',
       ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     },
-    body: JSON.stringify({ prompt }),
+    body: JSON.stringify({ prompt, mode }),
   })
 
   const data = (await response.json()) as Partial<ConstructionResponse> & { error?: string }

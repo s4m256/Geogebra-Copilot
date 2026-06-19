@@ -32,7 +32,7 @@ supabase secrets set OPENAI_MODEL=gpt-4.1
 
 ## Functions
 
-- `ai`: single Copilot endpoint. It reads the authenticated user, checks `profiles.plan`, applies free usage limits, then routes `free` users to Groq and `pro` users to OpenAI.
+- `ai`: single Copilot endpoint. It reads the authenticated user, checks `profiles.plan`, applies free usage limits, then routes `free` users to Groq and `pro` users to OpenAI. Request body accepts `mode: "draw" | "solve"`; `solve` is Pro-only and may return explanation without construction commands.
 - `create-checkout-session`: creates a Stripe subscription checkout for the authenticated user.
 - `create-billing-portal`: opens Stripe's billing portal for pro users with a stored Stripe customer.
 - `stripe-webhook`: updates `profiles.plan` from Stripe subscription status using `metadata.supabase_user_id`.

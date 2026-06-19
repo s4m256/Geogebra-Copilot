@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { CSSProperties, FormEvent, PointerEvent as ReactPointerEvent } from 'react'
-import { requestConstruction, type ConstructionResponse } from './ai'
+import { requestConstruction, type ConstructionResponse, type CopilotMode } from './ai'
 import {
   clearGeoGebraConstruction,
   createGeoGebraApplet,
@@ -50,6 +50,7 @@ function App() {
   const [chatWidth, setChatWidth] = useState(360)
   const [isChatExpanded, setIsChatExpanded] = useState(true)
   const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'failed'>('idle')
+  const [mode, setMode] = useState<CopilotMode>('draw')
   const [authEmail, setAuthEmail] = useState('')
   const [authSession, setAuthSession] = useState<AuthSession | null>(null)
   const [plan, setPlan] = useState<Plan>('free')
@@ -181,6 +182,11 @@ function App() {
       return
     }
 
+    if (mode === 'solve' && plan !== 'pro') {
+      setStatusText('O modo Resolver faz parte do plano Pro.')
+      return
+    }
+
     setInput('')
     setIsSubmitting(true)
     addMessage({ from: 'user', text: trimmedPrompt })
@@ -188,7 +194,16 @@ function App() {
     try {
       const response = await requestConstruction(trimmedPrompt, {
         accessToken: authSession?.accessToken,
+        mode,
       })
+
+      if (response.commands.length === 0) {
+        setLatestCommands([])
+        setStatusText('')
+        addMessage({ from: 'copilot', text: formatCopilotResponse(response, null, showDebug) })
+        return
+      }
+
       const parsed = normalizeGeoGebraBlock(response.commands.join('\n'))
 
       if (parsed.errors.length > 0) {
@@ -425,6 +440,23 @@ function App() {
             </label>
           </div>
         </header>
+        <section className="modeSwitch" aria-label="Modo do Copilot">
+          <button
+            type="button"
+            className={mode === 'draw' ? 'modeButton active' : 'modeButton'}
+            onClick={() => setMode('draw')}
+          >
+            Desenhar
+          </button>
+          <button
+            type="button"
+            className={mode === 'solve' ? 'modeButton active' : 'modeButton'}
+            onClick={() => setMode('solve')}
+            title={plan === 'pro' ? 'Resolver problema' : 'Disponivel no Pro'}
+          >
+            Resolver
+          </button>
+        </section>
         <section className="accountStrip" aria-label="Conta">
           {authSession ? (
             <>
@@ -548,19 +580,29 @@ function formatCompiledGeoGebraCommands(parsed: NormalizeResult) {
 
 function formatCopilotResponse(
   response: ConstructionResponse,
-  parsed: NormalizeResult,
+  parsed: NormalizeResult | null,
   showDebug: boolean,
 ) {
   const sections: string[] = []
 
-  sections.push(response.explanation || 'Construcao aplicada.')
+  sections.push(response.explanation || (parsed ? 'Construcao aplicada.' : 'Resposta concluida.'))
 
-  if (showDebug) {
+  if (showDebug && parsed) {
     sections.push(formatCompiledGeoGebraCommands(parsed))
     sections.push(
       [
         `Provider: ${response.debug.provider}`,
         `Modelo: ${response.debug.model}`,
+        `Modo: ${response.debug.mode ?? 'draw'}`,
+        `Reparo: ${response.debug.repaired ? 'sim' : 'nao'}`,
+      ].join('\n'),
+    )
+  } else if (showDebug) {
+    sections.push(
+      [
+        `Provider: ${response.debug.provider}`,
+        `Modelo: ${response.debug.model}`,
+        `Modo: ${response.debug.mode ?? 'solve'}`,
         `Reparo: ${response.debug.repaired ? 'sim' : 'nao'}`,
       ].join('\n'),
     )

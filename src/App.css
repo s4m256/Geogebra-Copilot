@@ -79,7 +79,7 @@
 
 .copilotPane {
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+  grid-template-rows: auto auto auto minmax(0, 1fr) auto auto auto;
   height: 100%;
   min-width: 0;
   min-height: 0;
@@ -87,6 +87,36 @@
   border-left: 1px solid var(--chat-line);
   background: var(--chat-bg);
   color: var(--chat-text);
+}
+
+.modeSwitch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--chat-line-soft);
+}
+
+.modeButton {
+  height: 30px;
+  border: 1px solid #303036;
+  border-radius: 7px;
+  background: #1e1e22;
+  color: var(--chat-muted);
+  font: 12px/1 var(--sans);
+  cursor: pointer;
+}
+
+.modeButton:hover {
+  color: #ffffff;
+  border-color: #454550;
+  background: #27272c;
+}
+
+.modeButton.active {
+  border-color: var(--ggb-primary-color);
+  background: #292542;
+  color: #ffffff;
 }
 
 .copilotHeader {
@@ -502,9 +532,10 @@
   }
 
   .copilotPaneCollapsed {
-    grid-template-rows: 52px 0 0 0 0 0;
+    grid-template-rows: 52px 0 0 0 0 0 0;
   }
 
+  .copilotPaneCollapsed .modeSwitch,
   .copilotPaneCollapsed .accountStrip,
   .copilotPaneCollapsed .conversation,
   .copilotPaneCollapsed .statusMessage,
@@ -521,7 +552,7 @@
 
 @media (max-width: 560px), (max-height: 560px) {
   .copilotPane {
-    grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto auto auto;
   }
 
   .copilotHeader {
