@@ -425,10 +425,28 @@
   margin: 0;
   padding: 7px 12px;
   border-top: 1px solid var(--chat-line-soft);
-  background: #1b1b1b;
-  color: #f6a19a;
   font-size: 12px;
   overflow-wrap: anywhere;
+}
+
+.status-error {
+  background: #241918;
+  color: #f6a19a;
+}
+
+.status-warning {
+  background: #242016;
+  color: #f1c46a;
+}
+
+.status-success {
+  background: #17221c;
+  color: #8bd7a3;
+}
+
+.status-info {
+  background: #171d24;
+  color: #9fc9f3;
 }
 
 .commandsDebug {

@@ -643,7 +643,7 @@ function App() {
           <div ref={conversationEndRef} />
         </div>
         {isGeoGebraReady && statusText ? (
-          <p className="statusMessage">{statusText}</p>
+          <p className={`statusMessage status-${readStatusTone(statusText)}`}>{statusText}</p>
         ) : null}
         {showDebug && latestCommands.length > 0 ? (
           <pre className="commandsDebug">{latestCommands.join('\n')}</pre>
@@ -673,6 +673,39 @@ function App() {
 
 function hasGeoGebraDebug(result: CommandExecutionResult) {
   return result.failed.length > 0 || result.warnings.length > 0
+}
+
+function readStatusTone(message: string) {
+  const normalized = message.toLowerCase()
+
+  if (
+    normalized.includes('erro') ||
+    normalized.includes('nao foi possivel') ||
+    normalized.includes('falhou') ||
+    normalized.includes('requer')
+  ) {
+    return 'error'
+  }
+
+  if (
+    normalized.includes('ativado') ||
+    normalized.includes('ativo') ||
+    normalized.includes('enviado') ||
+    normalized.includes('limpa')
+  ) {
+    return 'success'
+  }
+
+  if (
+    normalized.includes('aguardando') ||
+    normalized.includes('cancelada') ||
+    normalized.includes('assine') ||
+    normalized.includes('entre com')
+  ) {
+    return 'warning'
+  }
+
+  return 'info'
 }
 
 async function refreshPlanAfterCheckout(
