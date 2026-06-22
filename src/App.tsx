@@ -55,9 +55,8 @@ type Message = {
 type ChatThread = {
   id: string
   title: string
-  titleStatus: 'new' | 'pending' | 'ready'
+  isTitlePending: boolean
   messages: Message[]
-  createdAt: number
   updatedAt: number
 }
 
@@ -228,16 +227,6 @@ function App() {
     }
   }, [])
 
-  const focusGeoGebraFromPointer = useCallback(() => {
-    const activeElement = document.activeElement
-
-    if (activeElement instanceof HTMLElement && activeElement.closest('.copilotPane')) {
-      activeElement.blur()
-    }
-
-    window.getSelection()?.removeAllRanges()
-  }, [])
-
   const submitPrompt = async (prompt: string) => {
     const trimmedPrompt = prompt.trim()
 
@@ -265,7 +254,7 @@ function App() {
         ? {
           ...thread,
           title: formatChatTitle(trimmedPrompt),
-          titleStatus: authSession?.accessToken ? 'pending' : 'ready',
+          isTitlePending: Boolean(authSession?.accessToken),
           updatedAt: Date.now(),
         }
         : thread
@@ -454,7 +443,7 @@ function App() {
           ? {
             ...thread,
             title,
-            titleStatus: 'ready',
+            isTitlePending: false,
             updatedAt: Date.now(),
           }
           : thread
@@ -464,7 +453,7 @@ function App() {
         thread.id === chatId
           ? {
             ...thread,
-            titleStatus: 'ready',
+            isTitlePending: false,
           }
           : thread
       )))
@@ -503,12 +492,8 @@ function App() {
       className={`appShell ${isChatExpanded ? '' : 'chatCollapsed'}`}
       style={{ '--chat-width': `${chatWidth}px` } as CSSProperties}
     >
-      <section
-        className="geogebraPane"
-        aria-label="GeoGebra Geometry"
-        onPointerDown={focusGeoGebraFromPointer}
-      >
-        <div ref={geogebraHostRef} className="geogebraHost" tabIndex={-1} />
+      <section className="geogebraPane" aria-label="GeoGebra Geometry">
+        <div ref={geogebraHostRef} className="geogebraHost" />
         {!isGeoGebraReady && statusText ? (
           <div className="geoStatus">{statusText}</div>
         ) : null}
@@ -573,7 +558,7 @@ function App() {
           </button>
           <button
             type="button"
-            className={mode === 'solve' ? 'modeButton active' : 'modeButton proModeButton'}
+            className={mode === 'solve' ? 'modeButton active' : 'modeButton'}
             onClick={() => handleModeChange('solve')}
             title={isProPlan(plan) ? 'Resolver problema' : 'Disponivel no Pro'}
           >
@@ -666,7 +651,7 @@ function App() {
                     onClick={() => handleOpenChat(thread.id)}
                     title={thread.title}
                   >
-                    <span>{thread.titleStatus === 'pending' ? 'Gerando titulo...' : thread.title}</span>
+                    <span>{thread.isTitlePending ? 'Gerando titulo...' : thread.title}</span>
                   </button>
                 ))}
               </div>
@@ -724,8 +709,7 @@ function readStatusTone(message: string) {
   if (
     normalized.includes('ativado') ||
     normalized.includes('ativo') ||
-    normalized.includes('enviado') ||
-    normalized.includes('limpa')
+    normalized.includes('enviado')
   ) {
     return 'success'
   }
@@ -856,11 +840,10 @@ function normalizeStoredThread(thread: unknown): ChatThread | null {
     title: typeof candidate.title === 'string' && candidate.title.trim()
       ? candidate.title
       : 'Novo chat',
-    titleStatus: candidate.titleStatus === 'pending' ? 'pending' : 'ready',
+    isTitlePending: candidate.isTitlePending === true,
     messages: Array.isArray(candidate.messages)
       ? candidate.messages.filter(isStoredMessage)
       : [],
-    createdAt: typeof candidate.createdAt === 'number' ? candidate.createdAt : Date.now(),
     updatedAt: typeof candidate.updatedAt === 'number' ? candidate.updatedAt : Date.now(),
   }
 }
@@ -879,15 +862,12 @@ function isStoredMessage(message: unknown): message is Message {
 }
 
 function createChatThread(): ChatThread {
-  const now = Date.now()
-
   return {
     id: crypto.randomUUID(),
     title: 'Novo chat',
-    titleStatus: 'new',
+    isTitlePending: false,
     messages: [],
-    createdAt: now,
-    updatedAt: now,
+    updatedAt: Date.now(),
   }
 }
 
@@ -900,7 +880,7 @@ function formatVisibleChatTitle(thread: ChatThread | undefined) {
     return 'Novo chat'
   }
 
-  return thread.titleStatus === 'pending' ? 'Gerando titulo...' : thread.title
+  return thread.isTitlePending ? 'Gerando titulo...' : thread.title
 }
 
 function formatPlanLabel(plan: Plan) {

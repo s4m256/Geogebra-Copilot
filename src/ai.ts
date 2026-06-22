@@ -3,19 +3,16 @@ export type CopilotMode = 'draw' | 'solve'
 export type ConstructionResponse = {
   commands: string[]
   explanation: string | null
-  debug: {
-    provider: 'backend'
-    repaired: boolean
-    model: string
-    plan?: 'free' | 'pro'
-    mode?: CopilotMode
-  }
 }
 
 const FUNCTIONS_URL = import.meta.env.VITE_SUPABASE_FUNCTIONS_URL
 
 type ChatTitleResponse = {
   title?: string
+  error?: string
+}
+
+type BackendConstructionResponse = Partial<ConstructionResponse> & {
   error?: string
 }
 
@@ -73,7 +70,7 @@ async function requestBackendConstruction(
     body: JSON.stringify({ prompt, mode }),
   })
 
-  const data = (await response.json()) as Partial<ConstructionResponse> & { error?: string }
+  const data = (await response.json()) as BackendConstructionResponse
 
   if (!response.ok) {
     throw new Error(data.error ?? 'Backend AI request failed.')
@@ -86,7 +83,6 @@ async function requestBackendConstruction(
   return {
     commands: data.commands,
     explanation: data.explanation ?? null,
-    debug: data.debug ?? { provider: 'backend', repaired: false, model: 'backend' },
   }
 }
 

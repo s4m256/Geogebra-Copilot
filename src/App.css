@@ -19,62 +19,37 @@
   min-height: 0;
   overflow: hidden;
   background: #ffffff;
-  user-select: none;
 }
 
 .geogebraPane {
   position: relative;
+  display: flex;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
   background: #ffffff;
-  outline: none;
-  -webkit-user-select: none;
-  user-select: none;
 }
 
 .geogebraHost {
-  position: absolute;
-  inset: 0;
-  width: auto;
-  height: auto;
+  flex: 1;
+  width: 100%;
+  height: 100%;
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
-  outline: none;
-  -webkit-user-select: none;
-  user-select: none;
 }
 
 .geogebraHost > *,
 .geogebraHost iframe,
 .geogebraHost #geogebraApplet {
-  position: absolute !important;
-  inset: 0 !important;
   width: 100% !important;
   height: 100% !important;
   max-width: 100%;
   max-height: 100%;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  -webkit-user-select: none !important;
-  user-select: none !important;
-}
-
-.geogebraPane:focus,
-.geogebraPane:focus-visible,
-.geogebraHost:focus,
-.geogebraHost:focus-visible,
-.geogebraHost *:focus,
-.geogebraHost *:focus-visible {
-  outline: none !important;
 }
 
 .geogebraHost iframe {
   display: block;
   border: 0;
-  outline: none;
 }
 
 .geoStatus {
@@ -394,7 +369,6 @@
 
 .chatHistoryItem {
   display: block;
-  align-items: center;
   min-width: 0;
   min-height: 34px;
   border: 1px solid transparent;

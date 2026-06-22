@@ -196,8 +196,6 @@ export function createGeoGebraApplet(options: CreateAppletOptions) {
       }
 
       api.setSize(size.width, size.height)
-      syncInjectedAppletSize(host)
-      suppressInjectedAppletSelection(host)
     }
 
     function scheduleResize() {
@@ -213,8 +211,6 @@ export function createGeoGebraApplet(options: CreateAppletOptions) {
     window.addEventListener('resize', scheduleResize)
     document.addEventListener('fullscreenchange', scheduleResize)
     scheduleResize()
-    window.setTimeout(syncSize, 250)
-    window.setTimeout(syncSize, 900)
     onReady(api)
   }
 
@@ -236,67 +232,13 @@ export function createGeoGebraApplet(options: CreateAppletOptions) {
 
 function getHostSize(host: HTMLElement) {
   const rect = host.getBoundingClientRect()
-  const width = Math.max(Math.floor(rect.width || host.clientWidth || host.offsetWidth), 1)
-  const height = Math.max(Math.floor(rect.height || host.clientHeight || host.offsetHeight), 1)
+  const width = Math.max(Math.floor(rect.width || host.clientWidth || host.offsetWidth), 320)
+  const height = Math.max(Math.floor(rect.height || host.clientHeight || host.offsetHeight), 240)
 
   return {
     width,
     height,
   }
-}
-
-function syncInjectedAppletSize(host: HTMLElement) {
-  const size = getHostSize(host)
-  const injectedElements = new Set<HTMLElement>()
-
-  for (const child of host.children) {
-    if (child instanceof HTMLElement) {
-      injectedElements.add(child)
-    }
-  }
-
-  host
-    .querySelectorAll<HTMLElement>([
-      'iframe',
-      `#${APPLET_ID}`,
-      '.applet_container',
-      '.GeoGebraFrame',
-      '.GeoGebraFrameParent',
-      '.ggbTransform',
-    ].join(','))
-    .forEach((element) => injectedElements.add(element))
-
-  for (const element of injectedElements) {
-    element.style.setProperty('position', 'absolute', 'important')
-    element.style.setProperty('inset', '0', 'important')
-    element.style.setProperty('width', '100%', 'important')
-    element.style.setProperty('height', '100%', 'important')
-    element.style.setProperty('max-width', '100%')
-    element.style.setProperty('max-height', '100%')
-    element.style.setProperty('min-width', '0')
-    element.style.setProperty('min-height', '0')
-    element.style.setProperty('overflow', 'hidden')
-
-    if (element instanceof HTMLIFrameElement) {
-      element.width = String(size.width)
-      element.height = String(size.height)
-      element.setAttribute('tabindex', '-1')
-      element.setAttribute('draggable', 'false')
-    }
-  }
-}
-
-function suppressInjectedAppletSelection(host: HTMLElement) {
-  host.setAttribute('draggable', 'false')
-  host
-    .querySelectorAll<HTMLElement>('*')
-    .forEach((element) => {
-      element.setAttribute('draggable', 'false')
-      element.style.setProperty('-webkit-user-select', 'none', 'important')
-      element.style.setProperty('user-select', 'none', 'important')
-      element.style.setProperty('-webkit-tap-highlight-color', 'transparent')
-      element.style.setProperty('outline', 'none', 'important')
-    })
 }
 
 export function executeGeoGebraCommands(
@@ -452,15 +394,6 @@ export function executeGeoGebraCommands(
   }
 
   return result
-}
-
-export function clearGeoGebraConstruction(api: GeoGebraApi | null) {
-  if (!api) {
-    return false
-  }
-
-  clearExistingObjects(api)
-  return true
 }
 
 function getLineLineIntersectionFallback(
@@ -932,7 +865,7 @@ function validateCommandDependencies(commands: string[]) {
       const messages: string[] = []
 
       if (nestedCommands.length > 0) {
-        messages.push(`Comando aninhado não permitido: ${nestedCommands.join(', ')}`)
+        messages.push(`Comando aninhado nao permitido: ${nestedCommands.join(', ')}`)
       }
 
       if (missingNames.length > 0) {
