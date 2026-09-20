@@ -2,7 +2,7 @@
 
 Natural-language geometry compiled from typed semantic objects into deterministic GeoGebra commands.
 
-[Compiler](src/geometryCompiler.ts) · [Extended implementation and tests](https://github.com/s4m256/Geogebra-Copilot/tree/test) · [Branch review plan](docs/CANONICAL_BRANCH_PLAN.md)
+[Interactive compiler demo](https://s4m256.github.io/Geogebra-Copilot/) · [Compiler](src/geometryCompiler.ts) · [Extended implementation and tests](https://github.com/s4m256/Geogebra-Copilot/tree/test) · [Branch review plan](docs/CANONICAL_BRANCH_PLAN.md)
 
 ```mermaid
 flowchart LR
@@ -71,12 +71,17 @@ npm run verify
 
 The `test` branch passed **9 tests, TypeScript/Vite build and ESLint** on 2026-09-19. Tests exercise schema/reference rejection, compiler output and command normalization. They are not live-provider or geometric-correctness guarantees.
 
-## Preview and development
+## Public demo and development
 
-The [hosted preview](https://geogebra-copilot.vercel.app) loads the canvas, but submitting a request returned a missing `VITE_GROQ_API_KEY` error during the audit. It is not currently presented as a working AI demo. The previous no-key fenced-command instructions did not work in this check.
+The [public demo](https://s4m256.github.io/Geogebra-Copilot/) compiles a fixed triangle/altitude/orthocenter construction. Click **Explore triangle and orthocenter**, then drag the vertices in GeoGebra. It uses the real compiler, preserves the native toolbar, and needs no account or API key. It does **not** call an AI model.
 
-Run `npm run dev` locally. `main` uses `VITE_GROQ_API_KEY` in browser code: Vite client variables are exposed, so do not publish a private provider key in a frontend bundle. The `test` branch moves provider calls behind Supabase; see its [backend setup](https://github.com/s4m256/Geogebra-Copilot/blob/test/supabase/README.md).
+Natural-language generation requires a locally configured provider. Keep any `VITE_GROQ_API_KEY` local: Vite embeds these values in client bundles, so never deploy a build containing a private key. The public GitHub Pages build supplies none.
 
-## Limits
+```bash
+npm ci
+npm run dev
+```
 
-The compiler is not a theorem prover. Schema checks do not establish nondegeneracy or mathematical correctness. Authentication, plan routing and billing on `test` require separate end-to-end verification.
+The public applet requires access to GeoGebra's servers. The stronger `test` architecture remains separate pending the integration described above.
+
+The compiler is not a theorem prover: schema validation does not establish nondegeneracy or mathematical correctness.

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { requestConstruction } from './ai'
+import { compileSemanticConstruction } from './geometryCompiler'
+import { demoConstruction } from './demoConstruction'
 import {
   createGeoGebraApplet,
   executeGeoGebraCommands,
@@ -158,6 +160,17 @@ function App() {
       <aside className="copilotPane" aria-label="Copilot">
         <header className="copilotHeader">Copilot</header>
         <div className="conversation">
+          <section className="demoIntro">
+            <h1>GeoGebra Copilot</h1>
+            <p>Geometry from structured objects, compiled into an interactive construction.</p>
+            <button type="button" disabled={!isGeoGebraReady || isSubmitting} onClick={() => {
+              const commands = compileSemanticConstruction(demoConstruction)
+              const result = runCommands(commands)
+              addMessage({ from: 'copilot', text: result?.failed.length ? formatGeoGebraDebug(result) : `Example: triangle ABC, altitude foot D and orthocenter H. Drag A, B or C to explore.\n\nCompiled commands:\n${commands.join('\n')}` })
+            }}>Explore triangle and orthocenter</button>
+            <p><small>This example uses fixed semantic input and the real compiler; no AI request. Drag the vertices after loading.</small></p>
+            {!import.meta.env.VITE_GROQ_API_KEY && <p><small>Natural-language generation is available in a locally configured development environment. The public demo needs no account or key.</small></p>}
+          </section>
           {messages.map((message) => (
             <article key={message.id} className={`message message-${message.from}`}>
               <strong>{message.from === 'user' ? 'Voce' : 'Copilot'}</strong>
@@ -169,7 +182,7 @@ function App() {
         {isGeoGebraReady && statusText ? (
           <p className="statusMessage">{statusText}</p>
         ) : null}
-        <form className="promptForm" onSubmit={handleSubmit}>
+        {import.meta.env.VITE_GROQ_API_KEY && <form className="promptForm" onSubmit={handleSubmit}>
           <textarea
             value={input}
             onChange={(event) => setInput(event.target.value)}
@@ -185,7 +198,7 @@ function App() {
           >
             {isSubmitting ? <span className="sendPending" /> : <span className="sendIcon" />}
           </button>
-        </form>
+        </form>}
       </aside>
     </main>
   )

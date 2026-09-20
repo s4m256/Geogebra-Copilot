@@ -113,6 +113,12 @@
   scrollbar-width: thin;
 }
 
+.demoIntro { line-height: 1.5; margin-bottom: 20px; }
+.demoIntro h1 { font-size: 20px; margin: 8px 0; }
+.demoIntro small { color: #b1b1b8; }
+.demoIntro button { width: 100%; padding: 12px; border: 1px solid #8779ef; border-radius: 8px; background: #6557d2; color: white; cursor: pointer; font: inherit; }
+.demoIntro button:disabled { opacity: .5; cursor: wait; }
+
 .conversation::-webkit-scrollbar {
   width: 8px;
 }
