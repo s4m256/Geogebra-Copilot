@@ -1,4 +1,4 @@
-import type { SemanticConstruction } from './geometryCompiler'
+import type { SemanticConstruction } from './geometryCompiler.ts'
 
 export const demoConstruction: SemanticConstruction = { objects: [
   { type: 'point', name: 'A', x: 1, y: 3 },

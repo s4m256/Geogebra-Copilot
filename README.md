@@ -52,10 +52,11 @@ flowchart LR
 
 ## Verification
 
-For this default branch:
+For this default branch (Node 24+ for the bridge regression tests):
 
 ```bash
 npm ci
+npm test
 npm run build
 npm run lint
 ```

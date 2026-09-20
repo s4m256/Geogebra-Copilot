@@ -1,4 +1,4 @@
-import { type CoordMap, type Point2D, planCollinearSegmentMerge } from './collinearSegments'
+import { type CoordMap, type Point2D, planCollinearSegmentMerge } from './collinearSegments.ts'
 
 export type GeoGebraApi = {
   deleteObject?(name: string): void
@@ -81,7 +81,7 @@ declare global {
 }
 
 const DEPLOY_GGB_URL =
-  import.meta.env.VITE_GEOGEBRA_DEPLOY_URL ??
+  import.meta.env?.VITE_GEOGEBRA_DEPLOY_URL ??
   'https://www.geogebra.org/apps/deployggb.js'
 const HOST_ID = 'geogebra-host'
 const APPLET_ID = 'geogebraApplet'
@@ -297,35 +297,6 @@ export function executeGeoGebraCommands(
 
   for (const [index, command] of commands.entries()) {
     try {
-      const precomputedLineIntersection = getLineLineIntersectionFallback(
-        api,
-        definitions,
-        pointDefinitions,
-        command,
-      )
-
-      if (precomputedLineIntersection.command) {
-        const label = parseAssignment(command).lhs
-
-        if (label) {
-          deleteObject(api, label)
-        }
-
-        const precomputedOk = api.evalCommand(precomputedLineIntersection.command)
-
-        if (precomputedOk) {
-          result.executed.push(precomputedLineIntersection.command)
-          result.successfulCount = result.executed.length
-          result.warnings.push(`Computed line-line intersection: ${precomputedLineIntersection.command}`)
-          rememberCommandDefinition(precomputedLineIntersection.command, definitions, pointDefinitions)
-          continue
-        }
-
-        result.warnings.push(
-          `GeoGebra rejected computed line-line fallback: ${precomputedLineIntersection.command}`,
-        )
-      }
-
       const ok = api.evalCommand(command)
 
       if (!ok) {
@@ -791,6 +762,9 @@ function readLinePoints(
       return { start, end }
     }
   }
+
+  // A known construction must never be reinterpreted from its label.
+  if (definition) return null
 
   const inferredPair = inferLinePointNames(label)
 
