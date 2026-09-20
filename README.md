@@ -1,87 +1,48 @@
 # GeoGebra Copilot
 
-GeoGebra Copilot turns natural-language geometry requests into validated semantic geometry JSON, compiles that JSON into GeoGebra commands, and executes the commands in an embedded GeoGebra workspace.
+Typed geometry objects, dependency validation and deterministic construction compilation, with a separate Supabase AI runtime.
 
-## Run
+[Tested semantic library](src/semanticConstruction.ts) · [Compiler](src/geometryCompiler.ts) · [Tests](src/semanticConstruction.test.ts) · [Promotion plan](docs/CANONICAL_BRANCH_PLAN.md)
 
-On this Windows setup, first expose the portable Node install:
-
-```powershell
-$env:PATH += ";C:\Users\alunomedioald\Downloads\node-v24.15.0-win-x64\node-v24.15.0-win-x64"
+```mermaid
+flowchart LR
+    A[Typed semantic geometry] --> B[Schema and dependency validation]
+    B --> C[Deterministic compiler]
+    C --> D[GeoGebra commands]
 ```
 
-Then run commands with `npm.cmd`:
+## What this branch contains
 
-```powershell
-npm.cmd install
-npm.cmd run dev
-npm.cmd run build
-npm.cmd run lint
-npm.cmd run test
-npm.cmd run verify
-npm.cmd run doctor
-```
+This review branch is based on `test`. Its geometry library makes constructions explicit rather than asking a model to author GeoGebra command strings. The public `main` already has an earlier semantic JSON/compiler pipeline; this branch adds reference checks, construction types and regression tests.
 
-## AI Configuration
+**Runtime boundary:** the diagram describes the tested library. The Supabase AI function currently uses a separate parser/compiler in [copilot.ts](supabase/functions/_shared/copilot.ts), whose envelope checks do not call this strict validator. Integrating the library at that boundary is required before claiming the full chain validates live AI requests.
 
-Create `.env.local` with the public Supabase values used by the browser:
+## Technical highlights
 
-```text
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=your_public_anon_key
-VITE_SUPABASE_FUNCTIONS_URL=https://your-project.supabase.co/functions/v1
-```
+- A discriminated union and strict Zod schemas describe points, lines, triangle centers, circles, intersections and reflections.
+- Dependency validation rejects duplicate names, undefined references and invalid line/circle references.
+- The compiler reuses auxiliary lines and bisectors while emitting dependency-ordered commands.
+- Regression cases cover altitude feet, orthocenters, circumcenters, incenters, line-circle intersections, reflections and command normalization.
 
-Backend secrets live in Supabase, not in the frontend:
+## Concrete output
+
+With `A` and `B` already defined, `{ "type": "midpoint", "name": "M", "of": ["A", "B"] }` compiles to `M = Midpoint(A, B)`. An orthocenter is expressed as the intersection of constructed altitudes.
+
+See the [public main-branch fixture](https://github.com/s4m256/Geogebra-Copilot/blob/main/docs/CONSTRUCTION.md) for a fixed-input applet demonstration. It proves compiler output can be executed, not that a live provider or this branch's backend has been verified.
+
+## Verification
 
 ```bash
-supabase secrets set GROQ_API_KEY=...
-supabase secrets set OPENAI_API_KEY=...
-supabase secrets set STRIPE_SECRET_KEY=...
-supabase secrets set STRIPE_WEBHOOK_SECRET=...
-supabase secrets set STRIPE_PRO_PRICE_ID=...
-supabase secrets set STRIPE_SUCCESS_URL=http://localhost:5173
-supabase secrets set STRIPE_CANCEL_URL=http://localhost:5173
-supabase secrets set STRIPE_PORTAL_RETURN_URL=http://localhost:5173
+npm ci
+npm run verify
 ```
 
-The checkout function appends `?checkout=success` or `?checkout=cancel` to the success and cancel URLs, so these secrets can be the base app URL.
+The audit on 2026-09-19 passed **9 tests, TypeScript/Vite build and ESLint**. These are library tests, not end-to-end provider, authentication, billing or geometric-correctness guarantees.
 
-## Plans
+## Development
 
-- Free users use Draw mode backed by the lower-cost model.
-- Pro users can use Draw or Solve mode. Solve mode is backed by the stronger model and can return a text explanation with an optional construction.
-- The UI should stay focused: one prompt box, one GeoGebra workspace, and a clean chat history.
-- In production backend mode, users sign in with an email magic link before using Copilot. Free users see `Assinar Pro`, which opens Stripe Checkout.
+Run `npm run dev`. Configure the public `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` and `VITE_SUPABASE_FUNCTIONS_URL` values. Provider secrets belong in backend configuration; see [Supabase setup](supabase/README.md) and [release checklist](RELEASE_CHECKLIST.md).
 
-## Architecture
+The [hosted preview](https://geogebra-copilot.vercel.app) loaded its canvas but returned a missing-key error during the audit. Its deployment revision was not established; it is not presented as a verified semantic demo.
 
-```text
-Natural language
-  -> AI provider or Supabase Edge Function
-  -> semantic JSON
-  -> schema and dependency validation
-  -> deterministic geometry compiler
-  -> GeoGebra bridge
-  -> GeoGebra API
-```
-
-React owns UI and state. GeoGebra owns the construction canvas. The bridge in `src/geogebra.ts` is the only module that talks directly to the applet API.
-
-The model must never return raw GeoGebra commands. It returns supported semantic objects such as `point`, `polygon`, `altitudeFoot`, `orthocenter`, `parallelLine`, `perpendicularBisector`, `circumcenter`, and `incenter`; the compiler owns the actual command strings.
-
-## Backend Roadmap
-
-The current Supabase function is the provider boundary:
-
-- `supabase/functions/ai`: single AI endpoint. It reads the authenticated user's `profiles.plan`/`profiles.is_pro` state and routes free users to Groq and pro users to OpenAI.
-- `mode: "draw" | "solve"` is sent in the request body. `solve` returns an explanation and optional commands, and is limited to Pro users.
-- `supabase/functions/create-checkout-session`: creates a Stripe Checkout subscription session for the authenticated user.
-- `supabase/functions/create-billing-portal`: lets pro users manage or cancel billing in Stripe.
-- `supabase/functions/stripe-webhook`: updates the stored user plan from Stripe subscription events.
-
-The browser never receives provider keys. Supabase Auth, the `profiles` table (`plan`, `is_pro`, Stripe customer/subscription fields), usage events, and signed Stripe webhook data are the backend source of truth for plan routing.
-
-Run `npm.cmd run doctor` before testing the paid flow. It reports missing local env vars and CLIs without printing secret values.
-
-Use [RELEASE_CHECKLIST.md](RELEASE_CHECKLIST.md) before shipping a Vercel/Supabase/Stripe release.
+Schema/reference validation is not a theorem prover or complete degeneracy check. Production auth, solve-mode quality and billing readiness remain unverified.
