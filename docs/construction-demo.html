@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GeoGebra Copilot — compiler fixture</title>
+<style>body{margin:24px;font:16px system-ui;color:#172b3a;background:#f7fafc}h1{font-size:25px;margin-bottom:6px}p{max-width:880px}#status{font-family:monospace}#applet{margin-top:18px}</style>
+<h1>Triangle, altitude foot and orthocenter</h1>
+<p>Actual output of GeoGebra Copilot's deterministic compiler. Fixed semantic input; no AI request.</p>
+<div id="status">Loading GeoGebra…</div><div id="applet"></div>
+<script src="https://www.geogebra.org/apps/deployggb.js"></script>
+<script>
+const commands = ["A = (1, 3)","B = (0, 0)","C = (5, 0)","ABC = Polygon(A, B, C)","sAB = Segment(A, B)","auxAB = Line(A, B)","sBC = Segment(B, C)","auxBC = Line(B, C)","sCA = Segment(C, A)","auxCA = Line(C, A)","auxAD = PerpendicularLine(A, auxBC)","D = Intersect(auxAD, auxBC)","sAD = Segment(A, D)","auxAltB = PerpendicularLine(B, auxCA)","auxAltC = PerpendicularLine(C, auxAB)","H = Intersect(auxAltB, auxAltC)"];
+const applet = new GGBApplet({appName:'classic',width:900,height:550,showToolBar:false,showAlgebraInput:false,showMenuBar:false,appletOnLoad(api){
+  const failures=commands.filter(command => !api.evalCommand(command));
+  api.setCoordSystem(-2,7,-1.5,4.5);
+  const ok=failures.length===0 && api.exists('D') && api.exists('H');
+  document.getElementById('status').textContent=ok ? commands.length+' compiler commands executed; D and H exist.' : 'Failed commands: '+failures.join('; ');
+}},true); applet.inject('applet');
+</script></html>
