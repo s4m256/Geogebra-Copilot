@@ -1,6 +1,6 @@
-import { z, type ZodIssue } from 'zod'
-import { compileSemanticConstruction, type SemanticConstruction } from './geometryCompiler'
-import { SYSTEM_PROMPT } from './systemPrompt'
+import { parseSemanticConstructionContent } from './semanticConstruction.ts'
+import { compileSemanticConstruction } from './geometryCompiler.ts'
+import { SYSTEM_PROMPT } from './systemPrompt.ts'
 
 type GroqMessage = {
   role: 'system' | 'user'
@@ -18,37 +18,15 @@ type GroqResponse = {
   }
 }
 
-const nameSchema = z.string().regex(/^[A-Za-z]\w*$/)
-const pointPairSchema = z.tuple([nameSchema, nameSchema])
-const lineReferenceSchema = z.union([pointPairSchema, nameSchema])
-
-const geometryObjectSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('point'), name: nameSchema, x: z.number(), y: z.number() }).strict(),
-  z.object({ type: z.literal('polygon'), name: nameSchema.optional(), points: z.array(nameSchema).min(3).max(4) }).strict(),
-  z.object({ type: z.literal('segment'), name: nameSchema.optional(), from: nameSchema, to: nameSchema }).strict(),
-  z.object({ type: z.literal('line'), name: nameSchema.optional(), through: pointPairSchema }).strict(),
-  z.object({ type: z.literal('altitudeFoot'), name: nameSchema, from: nameSchema, to: lineReferenceSchema }).strict(),
-  z.object({ type: z.literal('midpoint'), name: nameSchema, of: pointPairSchema }).strict(),
-  z.object({ type: z.literal('orthocenter'), name: nameSchema, triangle: z.tuple([nameSchema, nameSchema, nameSchema]) }).strict(),
-  z.object({ type: z.literal('circleWithDiameter'), name: nameSchema, endpoints: pointPairSchema }).strict(),
-  z.object({ type: z.literal('lineIntersection'), name: nameSchema, line1: lineReferenceSchema, line2: lineReferenceSchema }).strict(),
-  z.object({ type: z.literal('lineCircleIntersection'), name: nameSchema, line: lineReferenceSchema, circle: nameSchema, index: z.union([z.literal(1), z.literal(2)]) }).strict(),
-  z.object({ type: z.literal('reflectAcrossLine'), name: nameSchema, point: nameSchema, line: lineReferenceSchema }).strict(),
-])
-
-const constructionSchema = z.object({
-  objects: z.array(geometryObjectSchema).min(1),
-}).strict()
-
 const GROQ_API_URL =
-  import.meta.env.VITE_GROQ_API_URL ??
+  import.meta.env?.VITE_GROQ_API_URL ??
   'https://api.groq.com/openai/v1/chat/completions'
-const GROQ_MODEL = import.meta.env.VITE_GROQ_MODEL ?? 'llama-3.3-70b-versatile'
-const CACHE_VERSION = 'semantic-v3'
+const GROQ_MODEL = import.meta.env?.VITE_GROQ_MODEL ?? 'llama-3.3-70b-versatile'
+const CACHE_VERSION = 'semantic-v4'
 const constructionCache = new Map<string, string[]>()
 
 export async function requestConstruction(prompt: string) {
-  const apiKey = import.meta.env.VITE_GROQ_API_KEY
+  const apiKey = import.meta.env?.VITE_GROQ_API_KEY
 
   if (!apiKey) {
     throw new Error('Set VITE_GROQ_API_KEY to enable Copilot generation.')
@@ -99,28 +77,10 @@ export async function requestConstruction(prompt: string) {
   throw new Error(`A IA retornou um formato invalido: ${repairedConstruction.message}`)
 }
 
-function parseConstructionContent(content: string) {
-  let parsedJson: unknown
-
-  try {
-    parsedJson = JSON.parse(content)
-  } catch {
-    return { ok: false as const, message: 'JSON invalido.' }
-  }
-
-  const parsedConstruction = constructionSchema.safeParse(parsedJson)
-
-  if (!parsedConstruction.success) {
-    return {
-      ok: false as const,
-      message: formatSchemaIssues(parsedJson, parsedConstruction.error.issues),
-    }
-  }
-
-  return {
-    ok: true as const,
-    commands: compileSemanticConstruction(parsedConstruction.data as SemanticConstruction),
-  }
+export function parseConstructionContent(content: string) {
+  const parsed = parseSemanticConstructionContent(content)
+  if (!parsed.ok) return parsed
+  return { ok: true as const, commands: compileSemanticConstruction(parsed.construction) }
 }
 
 async function requestChatCompletion(apiKey: string, messages: GroqMessage[]) {
@@ -152,32 +112,6 @@ async function requestChatCompletion(apiKey: string, messages: GroqMessage[]) {
   }
 
   return content
-}
-
-function formatSchemaIssues(response: unknown, issues: ZodIssue[]) {
-  return issues
-    .map((issue) => {
-      const path = issue.path.join('.') || 'response'
-      const value = readPath(response, issue.path)
-      const formattedValue = typeof value === 'string' ? ` (${JSON.stringify(value)})` : ''
-
-      return `${path}: ${issue.message}${formattedValue}`
-    })
-    .join('; ')
-}
-
-function readPath(value: unknown, path: Array<PropertyKey>) {
-  let current = value
-
-  for (const key of path) {
-    if (current === null || typeof current !== 'object') {
-      return undefined
-    }
-
-    current = (current as Record<PropertyKey, unknown>)[key]
-  }
-
-  return current
 }
 
 function makeCacheKey(prompt: string) {

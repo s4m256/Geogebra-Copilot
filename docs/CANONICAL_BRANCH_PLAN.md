@@ -1,5 +1,12 @@
 # Semantic branch promotion plan
 
+## Update — 2026-09-20
+
+The schema/dependency validation approach has now been selectively adapted into `main/src/semanticConstruction.ts`, restricted to the default branch's supported construction types. `ai.ts` invokes it for both initial and repaired model responses; the compiler also validates direct callers. It additionally checks point types, repeated defining points, and ambiguous line references. Compiler fixes prevent helper-name collisions and missing explicit line aliases. Seventeen main-branch tests pass.
+
+The public demo uses the actual default-branch compiler with fixed input and preserves dynamic intersections. No authentication, billing or Supabase backend changes were promoted. The remaining full-branch integration risks below still apply to `test`; they are not limitations of the new main response-validation boundary.
+
+
 Baseline: `test` at `2df8dbc` is 27 commits ahead of `main`, with no unique commits on `main` at audit time. `main` already has semantic JSON, strict Zod object schemas and a deterministic compiler. The old README was inaccurate.
 
 `docs/semantic-architecture` is a review branch based on the tested `test` implementation. It adds documentation without rewriting history or replacing working code.

@@ -1,3 +1,5 @@
+import { parseSemanticConstruction } from './semanticConstruction.ts'
+
 export type SemanticConstruction = {
   objects: GeometryObject[]
 }
@@ -20,15 +22,20 @@ export type GeometryObject =
 type CompilerState = {
   commands: string[]
   names: Set<string>
+  reservedNames: Set<string>
   points: Set<string>
   lines: Map<string, string>
   altitudeLines: Map<string, string>
 }
 
 export function compileSemanticConstruction(construction: SemanticConstruction) {
+  const parsed = parseSemanticConstruction(construction)
+  if (!parsed.ok) throw new Error(parsed.message)
+
   const state: CompilerState = {
     commands: [],
     names: new Set(),
+    reservedNames: new Set(construction.objects.flatMap(object => object.name ? [object.name] : [])),
     points: new Set(),
     lines: new Map(),
     altitudeLines: new Map(),
@@ -36,6 +43,7 @@ export function compileSemanticConstruction(construction: SemanticConstruction) 
 
   for (const object of construction.objects) {
     compileObject(object, state)
+    if (object.name && ['point', 'midpoint', 'altitudeFoot', 'orthocenter', 'lineIntersection', 'lineCircleIntersection', 'reflectAcrossLine'].includes(object.type)) state.points.add(object.name)
   }
 
   return state.commands
@@ -49,7 +57,7 @@ function compileObject(object: GeometryObject, state: CompilerState) {
       return
 
     case 'polygon': {
-      const name = object.name ?? `p${object.points.join('')}`
+      const name = object.name ?? nextName(state, `p${object.points.join('')}`)
       addCommand(state, name, `Polygon(${object.points.join(', ')})`)
 
       for (let index = 0; index < object.points.length; index += 1) {
@@ -148,7 +156,7 @@ function ensureLine(state: CompilerState, from: string, to: string, preferredNam
   const key = pairKey(from, to)
   const existing = state.lines.get(key)
 
-  if (existing) {
+  if (existing && (!preferredName || existing === preferredName)) {
     return existing
   }
 
@@ -198,7 +206,7 @@ function nextName(state: CompilerState, baseName: string) {
   let name = sanitizeName(baseName)
   let index = 1
 
-  while (state.names.has(name)) {
+  while (state.names.has(name) || state.reservedNames.has(name)) {
     index += 1
     name = `${sanitizeName(baseName)}${index}`
   }
